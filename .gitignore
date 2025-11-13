@@ -1,0 +1,54 @@
+# Build results
+bin/
+obj/
+[Bb]uild/
+[Ll]og/
+TestResults/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code
+.vscode/
+
+# Windows image file caches
+*.dbmdl
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# NuGet packages
+*.nupkg
+*.snupkg
+packages/
+*.nuspec
+
+# Rider
+.idea/
+
+# Publish output
+publish/
+
+# Local history for Visual Studio
+.localhistory/
+
+# WinUI specific
+*.appx
+*.appxbundle
+*.msix
+*.msixbundle
+AppPackages/
+Package.appxmanifest
+
+# Others
+*.vspscc
+*.vssscc
+*.pdb
+*.cache
+*.log
+*.tlog
+*.vs/
