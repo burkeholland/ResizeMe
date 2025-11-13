@@ -24,6 +24,7 @@ namespace ResizeMe
     {
         private HotKeyManager? _hotKeyManager;
         private WindowManager? _windowManager;
+        private WindowResizer? _windowResizer;
 
         public MainWindow()
         {
@@ -31,6 +32,7 @@ namespace ResizeMe
             
             // Initialize services
             _windowManager = new WindowManager();
+            _windowResizer = new WindowResizer();
             
             // Initialize hotkey manager after window is created
             this.Activated += MainWindow_Activated;
@@ -82,35 +84,81 @@ namespace ResizeMe
         {
             Debug.WriteLine("MainWindow: Hotkey Ctrl+Alt+R was pressed!");
             
-            // Test window enumeration
             try
             {
+                // Get list of resizable windows
                 var windows = _windowManager?.GetResizableWindows();
-                if (windows != null)
+                var targetWindow = _windowManager?.GetActiveResizableWindow();
+                if (windows != null && windows.Any())
                 {
-                    Debug.WriteLine($"MainWindow: Found {windows.Count()} resizable windows:");
-                    foreach (var window in windows.Take(10)) // Show first 10 for testing
+                    Debug.WriteLine($"MainWindow: Found {windows.Count()} resizable windows");
+                    
+                    foreach (var window in windows.Take(10))
                     {
                         Debug.WriteLine($"  - {window}");
                         Debug.WriteLine($"    Bounds: {window.Bounds}");
                     }
                     
-                    // Update window title to show count
-                    this.Title = $"ResizeMe - Found {windows.Count()} windows at {DateTime.Now:HH:mm:ss}";
+                    var resizeTarget = targetWindow ?? windows.First();
+                    if (targetWindow != null)
+                    {
+                        Debug.WriteLine($"MainWindow: Foreground window prioritized: {resizeTarget}");
+                    }
+                    else
+                    {
+                        Debug.WriteLine("MainWindow: No active window available, falling back to first entry");
+                    }
+                    
+                    if (_windowResizer != null)
+                    {
+                        Debug.WriteLine($"MainWindow: Testing resize on: {resizeTarget}");
+                        var result = _windowResizer.ResizeWindow(resizeTarget, 800, 600);
+                        
+                        if (result.Success)
+                        {
+                            Debug.WriteLine($"MainWindow: ✅ {result.DisplayMessage}");
+                            this.Title = $"ResizeMe - ✅ Resized {resizeTarget.DisplayText} to 800x600";
+                            
+                            if (_windowResizer.ActivateWindow(resizeTarget))
+                            {
+                                Debug.WriteLine($"MainWindow: ✅ Activated window {resizeTarget.DisplayText}");
+                            }
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"MainWindow: ❌ {result.DisplayMessage}");
+                            this.Title = $"ResizeMe - ❌ Failed to resize: {result.ErrorMessage}";
+                        }
+                        
+                        if (result.WindowStateChanged)
+                        {
+                            Debug.WriteLine("MainWindow: Window state was changed during resize");
+                        }
+                        
+                        if (result.ActualSize != null)
+                        {
+                            Debug.WriteLine($"MainWindow: Actual resulting size: {result.ActualSize}");
+                        }
+                    }
+                    else
+                    {
+                        this.Title = "ResizeMe - WindowResizer not initialized";
+                        Debug.WriteLine("MainWindow: WindowResizer is null");
+                    }
                 }
                 else
                 {
-                    this.Title = "ResizeMe - No windows found";
-                    Debug.WriteLine("MainWindow: No windows returned from WindowManager");
+                    this.Title = "ResizeMe - No resizable windows found";
+                    Debug.WriteLine("MainWindow: No resizable windows found");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"MainWindow: Error during window enumeration test: {ex.Message}");
+                Debug.WriteLine($"MainWindow: Error during resize test: {ex.Message}");
                 this.Title = $"ResizeMe - Error: {ex.Message}";
             }
             
-            // Bring our window to the front for testing
+            // Bring our window back to the front
             this.Activate();
         }
 

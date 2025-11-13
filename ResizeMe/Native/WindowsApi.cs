@@ -52,6 +52,182 @@ namespace ResizeMe.Native
         public const uint WS_EX_APPWINDOW = 0x00040000;
         public const int DWMWA_CLOAKED = 14;
 
+        /// <summary>
+        /// Changes the size, position, and Z order of a child, pop-up, or top-level window
+        /// </summary>
+        /// <param name="hWnd">Handle to the window</param>
+        /// <param name="hWndInsertAfter">Handle to the window to precede this window in Z order</param>
+        /// <param name="x">New position of the left side of the window</param>
+        /// <param name="y">New position of the top of the window</param>
+        /// <param name="cx">New width of the window</param>
+        /// <param name="cy">New height of the window</param>
+        /// <param name="flags">Window sizing and positioning flags</param>
+        /// <returns>True if successful, false otherwise</returns>
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
+
+        /// <summary>
+        /// Sets the specified window's show state
+        /// </summary>
+        /// <param name="hWnd">Handle to the window</param>
+        /// <param name="nCmdShow">Controls how the window is to be shown</param>
+        /// <returns>True if the window was previously visible, false otherwise</returns>
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        /// <summary>
+        /// Brings the specified window to the top of the Z order
+        /// </summary>
+        /// <param name="hWnd">Handle to the window</param>
+        /// <returns>True if successful, false otherwise</returns>
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool BringWindowToTop(IntPtr hWnd);
+
+        /// <summary>
+        /// Activates a window and displays it in its current size and position
+        /// </summary>
+        /// <param name="hWnd">Handle to the window</param>
+        /// <returns>True if successful, false otherwise</returns>
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        /// <summary>
+        /// Retrieves the handle of the foreground window
+        /// </summary>
+        /// <returns>Handle to the foreground window</returns>
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetForegroundWindow();
+
+        /// <summary>
+        /// Determines whether the specified window is maximized
+        /// </summary>
+        /// <param name="hWnd">Handle to the window</param>
+        /// <returns>True if the window is maximized, false otherwise</returns>
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool IsZoomed(IntPtr hWnd);
+
+        /// <summary>
+        /// Retrieves information about the specified window's placement
+        /// </summary>
+        /// <param name="hWnd">Handle to the window</param>
+        /// <param name="lpwndpl">Pointer to structure that receives placement information</param>
+        /// <returns>True if successful, false otherwise</returns>
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+
+        /// <summary>
+        /// Sets the show state and the restored, minimized, and maximized positions of the specified window
+        /// </summary>
+        /// <param name="hWnd">Handle to the window</param>
+        /// <param name="lpwndpl">Pointer to structure that specifies the new position and show state</param>
+        /// <returns>True if successful, false otherwise</returns>
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+
+        /// <summary>
+        /// Structure containing information about the placement of a window on the screen
+        /// </summary>
+        [StructLayout(LayoutKind.Sequential)]
+        public struct WINDOWPLACEMENT
+        {
+            public int length;
+            public int flags;
+            public int showCmd;
+            public POINT ptMinPosition;
+            public POINT ptMaxPosition;
+            public RECT rcNormalPosition;
+
+            public static WINDOWPLACEMENT Default
+            {
+                get
+                {
+                    var result = new WINDOWPLACEMENT();
+                    result.length = Marshal.SizeOf(result);
+                    return result;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Structure representing a point
+        /// </summary>
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT
+        {
+            public int X;
+            public int Y;
+
+            public POINT(int x, int y)
+            {
+                X = x;
+                Y = y;
+            }
+        }
+
+        /// <summary>
+        /// Retrieves the DWM window attribute
+        /// </summary>
+        /// <param name="hwnd">Handle to the window</param>
+        /// <param name="dwAttribute">Attribute to retrieve</param>
+        /// <param name="pvAttribute">Pointer to buffer to receive attribute</param>
+        /// <param name="cbAttribute">Size of buffer</param>
+        /// <returns>S_OK if successful</returns>
+        [DllImport("dwmapi.dll")]
+        public static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out bool pvAttribute, int cbAttribute);
+
+        /// <summary>
+        /// Structure representing a rectangle
+        /// </summary>
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+
+            public int Width => Right - Left;
+            public int Height => Bottom - Top;
+        }
+
+        // Window positioning constants
+        public const uint SWP_NOSIZE = 0x0001;
+        public const uint SWP_NOMOVE = 0x0002;
+        public const uint SWP_NOZORDER = 0x0004;
+        public const uint SWP_NOREDRAW = 0x0008;
+        public const uint SWP_NOACTIVATE = 0x0010;
+        public const uint SWP_FRAMECHANGED = 0x0020;
+        public const uint SWP_SHOWWINDOW = 0x0040;
+        public const uint SWP_HIDEWINDOW = 0x0080;
+        public const uint SWP_NOCOPYBITS = 0x0100;
+        public const uint SWP_NOOWNERZORDER = 0x0200;
+        public const uint SWP_NOSENDCHANGING = 0x0400;
+
+        // Special HWND values for SetWindowPos
+        public static readonly IntPtr HWND_TOP = new IntPtr(0);
+        public static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
+        public static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        public static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+
+        // ShowWindow constants
+        public const int SW_HIDE = 0;
+        public const int SW_SHOWNORMAL = 1;
+        public const int SW_SHOWMINIMIZED = 2;
+        public const int SW_SHOWMAXIMIZED = 3;
+        public const int SW_SHOWNOACTIVATE = 4;
+        public const int SW_SHOW = 5;
+        public const int SW_MINIMIZE = 6;
+        public const int SW_SHOWMINNOACTIVE = 7;
+        public const int SW_SHOWNA = 8;
+        public const int SW_RESTORE = 9;
+
         // Delegate for EnumWindows callback
         public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
@@ -140,29 +316,12 @@ namespace ResizeMe.Native
         public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
         /// <summary>
-        /// Retrieves the DWM window attribute
+        /// Retrieves the calling thread's last-error code value
         /// </summary>
-        /// <param name="hwnd">Handle to the window</param>
-        /// <param name="dwAttribute">Attribute to retrieve</param>
-        /// <param name="pvAttribute">Pointer to buffer to receive attribute</param>
-        /// <param name="cbAttribute">Size of buffer</param>
-        /// <returns>S_OK if successful</returns>
-        [DllImport("dwmapi.dll")]
-        public static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out bool pvAttribute, int cbAttribute);
-
-        /// <summary>
-        /// Structure representing a rectangle
-        /// </summary>
-        [StructLayout(LayoutKind.Sequential)]
-        public struct RECT
+        /// <returns>Last error code</returns>
+        public static uint GetLastError()
         {
-            public int Left;
-            public int Top;
-            public int Right;
-            public int Bottom;
-
-            public int Width => Right - Left;
-            public int Height => Bottom - Top;
+            return (uint)Marshal.GetLastWin32Error();
         }
     }
 }

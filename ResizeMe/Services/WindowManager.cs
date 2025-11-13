@@ -253,5 +253,28 @@ namespace ResizeMe.Services
         {
             return GetWindowById(windowInfo.Handle);
         }
+
+        /// <summary>
+        /// Gets the currently active/resizable window
+        /// </summary>
+        /// <returns>WindowInfo object for the active window or null if not found/invalid</returns>
+        public WindowInfo? GetActiveResizableWindow()
+        {
+            try
+            {
+                var foregroundHandle = WindowsApi.GetForegroundWindow();
+                if (foregroundHandle == IntPtr.Zero)
+                {
+                    return null;
+                }
+
+                return GetWindowById(foregroundHandle);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"WindowManager: Failed to get active window: {ex.Message}");
+                return null;
+            }
+        }
     }
 }
