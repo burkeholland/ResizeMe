@@ -24,7 +24,7 @@ These PRs establish the foundation for the app.
 - Filter out system windows (invisible, empty titles, etc.)
 - Return collection of window handles and titles
 - **Test:** Debug window list, verify filtering works
-- **Completed:** - [ ]
+- **Completed:** - [x]
 
 #### PR 1.3: Window Resizing Logic
 **Goal:** Implement actual window resize functionality
@@ -32,7 +32,7 @@ These PRs establish the foundation for the app.
 - Create `Resizer` class with Resize(hwnd, width, height) method
 - Handle edge cases (minimized windows, modal dialogs, etc.)
 - **Test:** Manually test resizing a known application
-- **Completed:** - [ ]
+- **Completed:** - [x]
 
 ---
 
