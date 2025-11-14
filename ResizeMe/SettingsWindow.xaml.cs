@@ -1,90 +1,108 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using ResizeMe.Models;
+using ResizeMe.Services;
 using System.Collections.ObjectModel;
-using System;
 using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
+using System;
 
 namespace ResizeMe
 {
     /// <summary>
-    /// Settings window for managing preset sizes (UI only - no persistence yet).
+    /// Settings window with persistent preset management.
     /// </summary>
     public sealed partial class SettingsWindow : Window
     {
-        private readonly ObservableCollection<PresetSizeTemp> _presets = new();
+        public event RoutedEventHandler? Loaded;
+        private readonly PresetManager _manager = new();
+        private readonly ObservableCollection<PresetSize> _viewPresets = new();
 
         public SettingsWindow()
         {
             InitializeComponent();
             Title = "ResizeMe Settings";
-            PresetList.ItemsSource = _presets;
-            SeedDefaults();
+            PresetList.ItemsSource = _viewPresets;
+            AttachLoadedHandler();
+            Loaded += SettingsWindow_Loaded;
         }
 
-        private void SeedDefaults()
+        private void AttachLoadedHandler()
         {
-            _presets.Clear();
-            _presets.Add(new PresetSizeTemp("HD",1280,720));
-            _presets.Add(new PresetSizeTemp("Full HD",1920,1080));
-            _presets.Add(new PresetSizeTemp("Laptop",1366,768));
-            _presets.Add(new PresetSizeTemp("Classic",1024,768));
+            if (Content is FrameworkElement root)
+            {
+                root.Loaded += Root_Loaded;
+            }
+            else
+            {
+                DispatcherQueue.TryEnqueue(async () =>
+                {
+                    await _manager.LoadAsync();
+                    RefreshView();
+                });
+            }
         }
 
-        private void AddButton_Click(object sender, RoutedEventArgs e)
+        private void Root_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (Content is FrameworkElement root)
+            {
+                root.Loaded -= Root_Loaded;
+            }
+            Loaded?.Invoke(this, e);
+        }
+
+        private async void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            await _manager.LoadAsync();
+            RefreshView();
+        }
+
+        private void RefreshView()
+        {
+            _viewPresets.Clear();
+            foreach (var p in _manager.Presets.OrderBy(p => p.Name)) _viewPresets.Add(p);
+            StatusText.Text = $"Loaded {_viewPresets.Count} presets";
+        }
+
+        private async void AddButton_Click(object sender, RoutedEventArgs e)
         {
             string name = NameInput.Text.Trim();
             if (!int.TryParse(WidthInput.Text, out int width) || !int.TryParse(HeightInput.Text, out int height))
             {
-                StatusText.Text = "Width/Height must be numbers";
-                return;
+                StatusText.Text = "Width/Height must be numbers"; return;
             }
             if (width <= 0 || height <= 0)
             {
-                StatusText.Text = "Dimensions must be > 0";
-                return;
+                StatusText.Text = "Dimensions must be > 0"; return;
             }
             if (string.IsNullOrWhiteSpace(name)) name = $"{width}x{height}";
-            _presets.Add(new PresetSizeTemp(name,width,height));
-            StatusText.Text = $"Added {name}";
+            var preset = new PresetSize { Name = name, Width = width, Height = height };
+            bool added = await _manager.AddPresetAsync(preset);
+            StatusText.Text = added ? $"Added {preset}" : "Duplicate name";
+            if (added) RefreshView();
             NameInput.Text = WidthInput.Text = HeightInput.Text = string.Empty;
         }
 
-        private void RemoveButton_Click(object sender, RoutedEventArgs e)
+        private async void RemoveButton_Click(object sender, RoutedEventArgs e)
         {
-            if (PresetList.SelectedItem is PresetSizeTemp item)
+            if (PresetList.SelectedItem is PresetSize item)
             {
-                _presets.Remove(item);
-                StatusText.Text = $"Removed {item.Name}";
+                bool removed = await _manager.RemovePresetAsync(item.Name);
+                StatusText.Text = removed ? $"Removed {item.Name}" : "Remove failed";
+                if (removed) RefreshView();
             }
-            else
-            {
-                StatusText.Text = "Nothing selected";
-            }
+            else StatusText.Text = "Nothing selected";
         }
 
-        private void RefreshButton_Click(object sender, RoutedEventArgs e)
+        private async void RefreshButton_Click(object sender, RoutedEventArgs e)
         {
-            SeedDefaults();
+            await _manager.ResetToDefaultsAsync();
+            RefreshView();
             StatusText.Text = "Defaults restored";
         }
 
-        private void CloseButton_Click(object sender, RoutedEventArgs e)
-        {
-            Close();
-        }
-    }
-
-    /// <summary>
-    /// Temporary preset model used only in PR 3.1 (replaced in PR 3.2).
-    /// </summary>
-    internal class PresetSizeTemp
-    {
-        public string Name { get; }
-        public int Width { get; }
-        public int Height { get; }
-        public PresetSizeTemp(string name, int width, int height)
-        {
-            Name = name; Width = width; Height = height;
-        }
+        private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
     }
 }

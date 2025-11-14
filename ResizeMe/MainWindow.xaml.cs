@@ -23,9 +23,11 @@ namespace ResizeMe
     /// </summary>
     public sealed partial class MainWindow : Window
     {
+        public event RoutedEventHandler? Loaded;
         private HotKeyManager? _hotKeyManager;
         private WindowManager? _windowManager;
         private WindowResizer? _windowResizer;
+        private readonly PresetManager _presetManager = new();
         private IntPtr _windowHandle = IntPtr.Zero;
         private AppWindow? _appWindow;
         private bool _isSubclassRegistered;
@@ -44,10 +46,36 @@ namespace ResizeMe
             InitializeComponent();
             _windowManager = new WindowManager();
             _windowResizer = new WindowResizer();
+            AttachWindowLoadedHandler();
+            Loaded += async (_, _) => await _presetManager.LoadAsync();
             SetupWindowAppearance();
             AttachKeyDownHandler();
             Activated += OnWindowActivated;
             Closed += Window_Closed;
+        }
+
+        private void AttachWindowLoadedHandler()
+        {
+            if (Content is FrameworkElement root)
+            {
+                root.Loaded += Root_Loaded;
+            }
+            else
+            {
+                DispatcherQueue.TryEnqueue(async () =>
+                {
+                    await _presetManager.LoadAsync();
+                });
+            }
+        }
+
+        private void Root_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (Content is FrameworkElement root)
+            {
+                root.Loaded -= Root_Loaded;
+            }
+            Loaded?.Invoke(this, e);
         }
 
         private void AttachKeyDownHandler()
