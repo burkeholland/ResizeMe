@@ -33,7 +33,29 @@ namespace ResizeMe
         {
             await _manager.LoadAsync();
             RefreshView();
-            NameInput.Focus(FocusState.Programmatic);
+            
+            // Set window size after everything is loaded
+            SetWindowSize();
+        }
+
+        private void SetWindowSize()
+        {
+            try
+            {
+                var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+                if (hWnd == IntPtr.Zero) return;
+                
+                var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
+                var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
+                if (appWindow != null)
+                {
+                    appWindow.Resize(new Windows.Graphics.SizeInt32(620, 520));
+                }
+            }
+            catch (System.ArgumentException)
+            {
+                // Window sizing failed - continue without setting specific size
+            }
         }
 
         private void RefreshView()
@@ -46,25 +68,32 @@ namespace ResizeMe
         private async void AddButton_Click(object sender, RoutedEventArgs e)
         {
             ValidationText.Text = string.Empty;
+            ValidationText.Visibility = Visibility.Collapsed;
             string name = NameInput.Text.Trim();
             if (!int.TryParse(WidthInput.Text, out int width) || !int.TryParse(HeightInput.Text, out int height))
             {
-                ValidationText.Text = "Width & Height must be numbers"; return;
+                ValidationText.Text = "Width and Height must be valid numbers";
+                ValidationText.Visibility = Visibility.Visible;
+                return;
             }
             if (width <= 0 || height <= 0)
             {
-                ValidationText.Text = "Values must be > 0"; return;
+                ValidationText.Text = "Dimensions must be greater than 0";
+                ValidationText.Visibility = Visibility.Visible;
+                return;
             }
             if (string.IsNullOrWhiteSpace(name)) name = $"{width}x{height}";
             var preset = new PresetSize { Name = name, Width = width, Height = height };
             bool added = await _manager.AddPresetAsync(preset);
             if (!added)
             {
-                ValidationText.Text = "Name already exists"; return;
+                ValidationText.Text = "A preset with this name already exists";
+                ValidationText.Visibility = Visibility.Visible;
+                return;
             }
             RefreshView();
             NotifyPresetsChanged();
-            StatusText.Text = $"Added {preset}";
+            StatusText.Text = $"Successfully added '{preset.Name}' preset";
             NameInput.Text = WidthInput.Text = HeightInput.Text = string.Empty;
             NameInput.Focus(FocusState.Programmatic);
         }

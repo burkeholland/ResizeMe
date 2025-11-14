@@ -96,14 +96,14 @@ namespace ResizeMe
             try
             {
                 Title = "ResizeMe";
-                ExtendsContentIntoTitleBar = true;
-                SetTitleBar(TitleBar);
+                // Use standard Windows title bar - no custom chrome needed
                 EnsureWindowHandle();
                 if (_windowHandle != IntPtr.Zero)
                 {
                     var windowId = Win32Interop.GetWindowIdFromWindow(_windowHandle);
                     _appWindow = AppWindow.GetFromWindowId(windowId);
-                    _appWindow?.Resize(new SizeInt32(300, 340));
+                    // Modern card-based layout with proper spacing
+                    _appWindow?.Resize(new SizeInt32(400, 450));
                     WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_HIDE);
                 }
                 _isVisible = false;
@@ -261,18 +261,19 @@ namespace ResizeMe
                 var stack = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
-                    Spacing = 8,
+                    Spacing = 12,
                     Children =
                     {
-                        new FontIcon{FontFamily=new Microsoft.UI.Xaml.Media.FontFamily("Segoe Fluent Icons"), Glyph=glyph, FontSize=16, Opacity=0.85},
+                        new FontIcon{FontFamily=new Microsoft.UI.Xaml.Media.FontFamily("Segoe Fluent Icons"), Glyph=glyph, FontSize=20, Opacity=0.9},
                         new StackPanel
                         {
                             Orientation = Orientation.Vertical,
                             Spacing = 2,
+                            VerticalAlignment = VerticalAlignment.Center,
                             Children =
                             {
-                                new TextBlock{Text=preset.Name, FontWeight= FontWeights.SemiBold, FontSize=14},
-                                new TextBlock{Text=$"{preset.Width}×{preset.Height}", Opacity=0.8, FontSize=11}
+                                new TextBlock{Text=preset.Name, FontWeight= FontWeights.SemiBold, FontSize=16},
+                                new TextBlock{Text=$"{preset.Width} × {preset.Height}", Opacity=0.8, FontSize=13}
                             }
                         }
                     }
@@ -282,13 +283,17 @@ namespace ResizeMe
                 {
                     Content = stack,
                     Tag = $"{preset.Width}x{preset.Height}",
-                    Height = 48,
-                    Margin = new Thickness(0,0,0,4)
+                    Margin = new Thickness(0,0,0,0)
                 };
                 if (baseStyle != null)
                 {
                     btn.Style = baseStyle;
                 }
+                btn.Height = double.NaN;
+                btn.MinHeight = 64;
+                btn.Padding = new Thickness(16, 12, 16, 12);
+                btn.HorizontalContentAlignment = HorizontalAlignment.Left;
+                btn.VerticalContentAlignment = VerticalAlignment.Center;
                 btn.Click += PresetButton_Click;
                 DynamicPresetsPanel.Children.Add(btn);
             }
