@@ -28,9 +28,9 @@ namespace ResizeMe.Services
         }
 
         /// <summary>Loads presets from disk (idempotent).</summary>
-        public async Task LoadAsync()
+        public async Task LoadAsync(bool forceReload = false)
         {
-            if (_loaded) return;
+            if (_loaded && !forceReload) return;
             try
             {
                 var folder = ApplicationData.Current.LocalFolder;

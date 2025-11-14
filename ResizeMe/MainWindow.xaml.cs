@@ -3,6 +3,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Text;
 using ResizeMe.Native;
 using ResizeMe.Services;
 using ResizeMe.Models;
@@ -47,7 +48,7 @@ namespace ResizeMe
             _windowManager = new WindowManager();
             _windowResizer = new WindowResizer();
             AttachWindowLoadedHandler();
-            Loaded += async (_, _) => await _presetManager.LoadAsync();
+            Loaded += async (_, _) => { await _presetManager.LoadAsync(); LoadPresetButtons(); };
             SetupWindowAppearance();
             AttachKeyDownHandler();
             Activated += OnWindowActivated;
@@ -65,6 +66,7 @@ namespace ResizeMe
                 DispatcherQueue.TryEnqueue(async () =>
                 {
                     await _presetManager.LoadAsync();
+                    LoadPresetButtons();
                 });
             }
         }
@@ -167,6 +169,7 @@ namespace ResizeMe
                 if (anchorWindow != null) WindowPositionHelper.CenterOnWindow(this, anchorWindow); else WindowPositionHelper.CenterOnScreen(this);
                 _isVisible = true;
                 StatusText.Text = "Menu shown";
+                LoadPresetButtons();
             }
             catch (Exception ex)
             {
@@ -196,11 +199,74 @@ namespace ResizeMe
             {
                 if (_windowManager == null) return;
                 _availableWindows = _windowManager.GetResizableWindows().ToList();
-                _selectedWindow = _availableWindows.FirstOrDefault();
+                var activeWindow = _windowManager.GetActiveResizableWindow();
+                if (activeWindow != null)
+                {
+                    _selectedWindow = activeWindow;
+                }
+                else
+                {
+                    _selectedWindow = _availableWindows.FirstOrDefault();
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"RefreshWindowList error: {ex.Message}");
+            }
+        }
+
+        private void LoadPresetButtons()
+        {
+            if (DynamicPresetsPanel == null) return;
+            DynamicPresetsPanel.Children.Clear();
+
+            Style? baseStyle = null;
+            Style? activeStyle = null;
+            var resources = App.Current?.Resources;
+            if (resources != null)
+            {
+                if (resources.TryGetValue("PresetButtonBaseStyle", out var baseStyleObj) && baseStyleObj is Style basePresetStyle)
+                {
+                    baseStyle = basePresetStyle;
+                }
+                if (resources.TryGetValue("ActivePresetButtonStyle", out var activeStyleObj) && activeStyleObj is Style activePresetStyle)
+                {
+                    activeStyle = activePresetStyle;
+                }
+            }
+
+            foreach (var preset in _presetManager.Presets)
+            {
+                var btn = new Button
+                {
+                    Content = new StackPanel
+                    {
+                        Orientation = Orientation.Vertical,
+                        Spacing = 2,
+                        Children =
+                        {
+                            new TextBlock{Text=preset.Name, FontWeight= FontWeights.SemiBold, FontSize=14},
+                            new TextBlock{Text=$"{preset.Width}×{preset.Height}", Opacity=0.8, FontSize=11}
+                        }
+                    },
+                    Tag = $"{preset.Width}x{preset.Height}",
+                    Height = 48,
+                    Margin = new Thickness(0,0,0,4)
+                };
+                if (baseStyle != null)
+                {
+                    btn.Style = baseStyle;
+                }
+                btn.Click += PresetButton_Click;
+                DynamicPresetsPanel.Children.Add(btn);
+            }
+            if (!_presetManager.Presets.Any())
+            {
+                PresetHint.Text = "No presets defined. Add in Settings.";
+            }
+            else
+            {
+                PresetHint.Text = "Customize in Settings";
             }
         }
 
@@ -244,10 +310,24 @@ namespace ResizeMe
         private void SetActivePreset(string sizeTag)
         {
             _activePresetTag = sizeTag;
-            var activeStyle = (Style?)App.Current.Resources["ActivePresetButtonStyle"];
-            var baseStyle = (Style?)App.Current.Resources["PresetButtonBaseStyle"];
-            if (PresetsGrid == null || activeStyle == null || baseStyle == null) return;
-            foreach (var child in PresetsGrid.Children.OfType<Button>())
+
+            Style? activeStyle = null;
+            Style? baseStyle = null;
+            var resources = App.Current?.Resources;
+            if (resources != null)
+            {
+                if (resources.TryGetValue("ActivePresetButtonStyle", out var activeObj) && activeObj is Style activePresetStyle)
+                {
+                    activeStyle = activePresetStyle;
+                }
+                if (resources.TryGetValue("PresetButtonBaseStyle", out var baseObj) && baseObj is Style basePresetStyle)
+                {
+                    baseStyle = basePresetStyle;
+                }
+            }
+
+            if (DynamicPresetsPanel == null || activeStyle == null || baseStyle == null) return;
+            foreach (var child in DynamicPresetsPanel.Children.OfType<Button>())
             {
                 if (child.Tag is string tag && tag == sizeTag) child.Style = activeStyle; else child.Style = baseStyle;
             }
@@ -329,6 +409,13 @@ namespace ResizeMe
             try
             {
                 var win = new SettingsWindow();
+                win.PresetsChanged += OnSettingsPresetsChanged;
+                win.Closed += async (_, _) =>
+                {
+                    win.PresetsChanged -= OnSettingsPresetsChanged;
+                    await _presetManager.LoadAsync(true);
+                    DispatcherQueue.TryEnqueue(LoadPresetButtons);
+                };
                 win.Activate();
                 StatusText.Text = "Settings opened";
             }
@@ -337,6 +424,12 @@ namespace ResizeMe
                 StatusText.Text = "Settings failed";
                 System.Diagnostics.Debug.WriteLine($"Settings open error: {ex.Message}");
             }
+        }
+
+        private async void OnSettingsPresetsChanged(object? sender, EventArgs e)
+        {
+            await _presetManager.LoadAsync(true);
+            DispatcherQueue.TryEnqueue(LoadPresetButtons);
         }
     }
 

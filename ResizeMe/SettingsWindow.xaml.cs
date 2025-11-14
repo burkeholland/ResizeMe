@@ -16,6 +16,8 @@ namespace ResizeMe
         private readonly PresetManager _manager = new();
         private readonly ObservableCollection<PresetSize> _view = new();
 
+        public event EventHandler? PresetsChanged;
+
         public SettingsWindow()
         {
             InitializeComponent();
@@ -61,6 +63,7 @@ namespace ResizeMe
                 ValidationText.Text = "Name already exists"; return;
             }
             RefreshView();
+            NotifyPresetsChanged();
             StatusText.Text = $"Added {preset}";
             NameInput.Text = WidthInput.Text = HeightInput.Text = string.Empty;
             NameInput.Focus(FocusState.Programmatic);
@@ -73,7 +76,11 @@ namespace ResizeMe
             {
                 bool removed = await _manager.RemovePresetAsync(ps.Name);
                 StatusText.Text = removed ? $"Removed {ps.Name}" : "Remove failed";
-                if (removed) RefreshView();
+                if (removed)
+                {
+                    RefreshView();
+                    NotifyPresetsChanged();
+                }
             }
             else ValidationText.Text = "Select preset first";
         }
@@ -82,6 +89,7 @@ namespace ResizeMe
         {
             await _manager.ResetToDefaultsAsync();
             RefreshView();
+            NotifyPresetsChanged();
             StatusText.Text = "Defaults restored";
         }
 
@@ -91,5 +99,10 @@ namespace ResizeMe
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+
+        private void NotifyPresetsChanged()
+        {
+            PresetsChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 }

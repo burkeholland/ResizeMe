@@ -42,52 +42,10 @@
                 <StackPanel Spacing="16">
                     <!-- Presets Section -->
                     <StackPanel x:Name="PresetsSection" Spacing="12">
-                        <TextBlock Text="Quick Resize" FontWeight="SemiBold" FontSize="16" Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
-                        <Grid x:Name="PresetsGrid">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- 1280x720 -->
-                            <Button x:Name="Preset1280x720" Grid.Row="0" Grid.Column="0" Style="{StaticResource PresetButtonBaseStyle}" Tag="1280x720" Click="PresetButton_Click" Margin="0,0,4,4">
-                                <StackPanel Orientation="Vertical" Spacing="2">
-                                    <TextBlock Text="HD" Style="{StaticResource PresetHeaderTextStyle}"/>
-                                    <TextBlock Text="1280×720" Style="{StaticResource PresetSubTextStyle}"/>
-                                </StackPanel>
-                            </Button>
-
-                            <!-- 1920x1080 -->
-                            <Button x:Name="Preset1920x1080" Grid.Row="0" Grid.Column="1" Style="{StaticResource PresetButtonBaseStyle}" Tag="1920x1080" Click="PresetButton_Click" Margin="4,0,0,4">
-                                <StackPanel Orientation="Vertical" Spacing="2">
-                                    <TextBlock Text="Full HD" Style="{StaticResource PresetHeaderTextStyle}"/>
-                                    <TextBlock Text="1920×1080" Style="{StaticResource PresetSubTextStyle}"/>
-                                </StackPanel>
-                            </Button>
-
-                            <!-- 1366x768 -->
-                            <Button x:Name="Preset1366x768" Grid.Row="1" Grid.Column="0" Style="{StaticResource PresetButtonBaseStyle}" Tag="1366x768" Click="PresetButton_Click" Margin="0,4,4,0">
-                                <StackPanel Orientation="Vertical" Spacing="2">
-                                    <TextBlock Text="Laptop" Style="{StaticResource PresetHeaderTextStyle}"/>
-                                    <TextBlock Text="1366×768" Style="{StaticResource PresetSubTextStyle}"/>
-                                </StackPanel>
-                            </Button>
-
-                            <!-- 1024x768 -->
-                            <Button x:Name="Preset1024x768" Grid.Row="1" Grid.Column="1" Style="{StaticResource PresetButtonBaseStyle}" Tag="1024x768" Click="PresetButton_Click" Margin="4,4,0,0">
-                                <StackPanel Orientation="Vertical" Spacing="2">
-                                    <TextBlock Text="Classic" Style="{StaticResource PresetHeaderTextStyle}"/>
-                                    <TextBlock Text="1024×768" Style="{StaticResource PresetSubTextStyle}"/>
-                                </StackPanel>
-                            </Button>
-                        </Grid>
+                        <TextBlock Text="Quick Resize" FontWeight="SemiBold" FontSize="16" />
+                        <StackPanel x:Name="DynamicPresetsPanel" Orientation="Vertical" Spacing="6" />
+                        <TextBlock x:Name="PresetHint" Text="Customize in Settings" FontSize="11" Opacity="0.7" />
                     </StackPanel>
-
-                    <!-- Placeholder for future sections (kept minimal for PR scope) -->
                 </StackPanel>
             </ScrollViewer>
 
