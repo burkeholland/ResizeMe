@@ -38,6 +38,7 @@ namespace ResizeMe
         private List<WindowInfo> _availableWindows = new();
         private string? _activePresetTag;
         private int _presetIndex = -1;
+        private TrayIconManager? _trayIcon;
 
         private WinApiSubClass.SubClassProc? _subclassProc;
         private readonly IntPtr _subClassId = new(1001);
@@ -139,6 +140,14 @@ namespace ResizeMe
                 if (WinApiSubClass.SetWindowSubclass(_windowHandle, _subclassProc, _subClassId, IntPtr.Zero))
                 {
                     _isSubclassRegistered = true;
+                }
+            }
+            if (_trayIcon == null && _windowHandle != IntPtr.Zero)
+            {
+                _trayIcon = new TrayIconManager(_windowHandle);
+                if (_trayIcon.Initialize())
+                {
+                    Debug.WriteLine("Tray icon initialized");
                 }
             }
             HideWindow();
@@ -452,6 +461,7 @@ namespace ResizeMe
 
         private void Window_Closed(object sender, WindowEventArgs e)
         {
+            _trayIcon?.Dispose();
             _hotKeyManager?.Dispose();
             if (_isSubclassRegistered && _windowHandle != IntPtr.Zero && _subclassProc != null)
             {
