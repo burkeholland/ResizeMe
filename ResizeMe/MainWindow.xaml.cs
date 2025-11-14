@@ -296,9 +296,19 @@ namespace ResizeMe
             return WinApiSubClass.DefSubclassProc(hWnd, uMsg, wParam, lParam);
         }
 
-        private void SettingsButton_Click(object sender, RoutedEventArgs e)
+        private void SettingsButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
-            StatusText.Text = "Settings";
+            try
+            {
+                var win = new SettingsWindow();
+                win.Activate();
+                StatusText.Text = "Settings opened";
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "Settings failed";
+                System.Diagnostics.Debug.WriteLine($"Settings open error: {ex.Message}");
+            }
         }
     }
 
