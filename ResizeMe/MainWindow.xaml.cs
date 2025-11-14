@@ -37,6 +37,7 @@ namespace ResizeMe
         private WindowInfo? _selectedWindow;
         private List<WindowInfo> _availableWindows = new();
         private string? _activePresetTag;
+        private int _presetIndex = -1;
 
         private WinApiSubClass.SubClassProc? _subclassProc;
         private readonly IntPtr _subClassId = new(1001);
@@ -185,6 +186,7 @@ namespace ResizeMe
                 EnsureWindowHandle();
                 if (_windowHandle != IntPtr.Zero) WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_HIDE);
                 _isVisible = false;
+                _presetIndex = -1;
                 StatusText.Text = "Hidden";
             }
             catch (Exception ex)
@@ -263,11 +265,25 @@ namespace ResizeMe
             if (!_presetManager.Presets.Any())
             {
                 PresetHint.Text = "No presets defined. Add in Settings.";
+                _presetIndex = -1;
             }
             else
             {
                 PresetHint.Text = "Customize in Settings";
+                FocusPreset(0);
             }
+        }
+
+        private void FocusPreset(int index)
+        {
+            if (DynamicPresetsPanel == null) return;
+            var buttons = DynamicPresetsPanel.Children.OfType<Button>().ToList();
+            if (!buttons.Any()) return;
+            if (index < 0) index = 0;
+            if (index >= buttons.Count) index = buttons.Count - 1;
+            _presetIndex = index;
+            var target = buttons[index];
+            target.Focus(FocusState.Programmatic);
         }
 
         private async Task ResizeSelectedWindow(int width, int height, string sizeTag)
@@ -348,10 +364,35 @@ namespace ResizeMe
         private void OnKeyDown(object sender, KeyRoutedEventArgs e)
         {
             if (!_isVisible) return;
+            var buttons = DynamicPresetsPanel?.Children.OfType<Button>().ToList();
             switch (e.Key)
             {
                 case Windows.System.VirtualKey.Escape:
                     HideWindow();
+                    e.Handled = true;
+                    break;
+                case Windows.System.VirtualKey.Right:
+                case Windows.System.VirtualKey.Down:
+                    if (buttons != null && buttons.Count > 0)
+                    {
+                        FocusPreset(_presetIndex + 1);
+                        e.Handled = true;
+                    }
+                    break;
+                case Windows.System.VirtualKey.Left:
+                case Windows.System.VirtualKey.Up:
+                    if (buttons != null && buttons.Count > 0)
+                    {
+                        FocusPreset(_presetIndex - 1);
+                        e.Handled = true;
+                    }
+                    break;
+                case Windows.System.VirtualKey.Enter:
+                    if (buttons != null && _presetIndex >= 0 && _presetIndex < buttons.Count)
+                    {
+                        PresetButton_Click(buttons[_presetIndex], new RoutedEventArgs());
+                        e.Handled = true;
+                    }
                     break;
             }
         }
