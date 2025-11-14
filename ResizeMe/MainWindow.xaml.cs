@@ -160,6 +160,7 @@ namespace ResizeMe
                 EnsureWindowHandle();
                 RefreshWindowList();
                 var anchorWindow = _windowManager?.GetActiveResizableWindow() ?? _availableWindows.FirstOrDefault();
+                if (anchorWindow != null) WindowPositionHelper.CenterOnWindow(this, anchorWindow); else WindowPositionHelper.CenterOnScreen(this);
                 if (_windowHandle != IntPtr.Zero)
                 {
                     WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_RESTORE);
@@ -167,10 +168,10 @@ namespace ResizeMe
                     ApplyAlwaysOnTop();
                 }
                 Activate();
-                if (anchorWindow != null) WindowPositionHelper.CenterOnWindow(this, anchorWindow); else WindowPositionHelper.CenterOnScreen(this);
                 _isVisible = true;
                 StatusText.Text = "Menu shown";
                 LoadPresetButtons();
+                AnimateShow();
             }
             catch (Exception ex)
             {
@@ -183,6 +184,7 @@ namespace ResizeMe
         {
             try
             {
+                AnimateHide();
                 EnsureWindowHandle();
                 if (_windowHandle != IntPtr.Zero) WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_HIDE);
                 _isVisible = false;
@@ -239,18 +241,37 @@ namespace ResizeMe
 
             foreach (var preset in _presetManager.Presets)
             {
+                string glyph = preset.Width switch
+                {
+                    <= 1024 => "\xE7F8",
+                    <= 1366 => "\xE80A",
+                    <= 1920 => "\xE959",
+                    _ => "\xE9F9"
+                };
+
+                var stack = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children =
+                    {
+                        new FontIcon{FontFamily=new Microsoft.UI.Xaml.Media.FontFamily("Segoe Fluent Icons"), Glyph=glyph, FontSize=16, Opacity=0.85},
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Vertical,
+                            Spacing = 2,
+                            Children =
+                            {
+                                new TextBlock{Text=preset.Name, FontWeight= FontWeights.SemiBold, FontSize=14},
+                                new TextBlock{Text=$"{preset.Width}×{preset.Height}", Opacity=0.8, FontSize=11}
+                            }
+                        }
+                    }
+                };
+
                 var btn = new Button
                 {
-                    Content = new StackPanel
-                    {
-                        Orientation = Orientation.Vertical,
-                        Spacing = 2,
-                        Children =
-                        {
-                            new TextBlock{Text=preset.Name, FontWeight= FontWeights.SemiBold, FontSize=14},
-                            new TextBlock{Text=$"{preset.Width}×{preset.Height}", Opacity=0.8, FontSize=11}
-                        }
-                    },
+                    Content = stack,
                     Tag = $"{preset.Width}x{preset.Height}",
                     Height = 48,
                     Margin = new Thickness(0,0,0,4)
@@ -472,6 +493,31 @@ namespace ResizeMe
             await _presetManager.LoadAsync(true);
             DispatcherQueue.TryEnqueue(LoadPresetButtons);
         }
+
+        private void AnimateShow()
+        {
+            if (RootGrid == null) return;
+            RootGrid.Opacity = 0;
+            var animation = RootGrid.CreateDoubleAnimation(0, 1, 180);
+            var visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(RootGrid);
+            var compositor = visual.Compositor;
+            var batch = compositor.CreateBatch();
+            visual.StartAnimation("Opacity", animation);
+            batch.Completed += (_, _) => RootGrid.DispatcherQueue.TryEnqueue(() => RootGrid.Opacity = 1);
+            batch.End();
+        }
+
+        private void AnimateHide()
+        {
+            if (RootGrid == null) return;
+            var animation = RootGrid.CreateDoubleAnimation(RootGrid.Opacity, 0, 120);
+            var visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(RootGrid);
+            var compositor = visual.Compositor;
+            var batch = compositor.CreateBatch();
+            visual.StartAnimation("Opacity", animation);
+            batch.Completed += (_, _) => RootGrid.DispatcherQueue.TryEnqueue(() => RootGrid.Opacity = 0);
+            batch.End();
+        }
     }
 
     internal static class WinApiSubClass
@@ -480,5 +526,25 @@ namespace ResizeMe
         [DllImport("comctl32.dll")] public static extern bool SetWindowSubclass(IntPtr hWnd, SubClassProc pfnSubclass, IntPtr uIdSubclass, IntPtr dwRefData);
         [DllImport("comctl32.dll")] public static extern IntPtr DefSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
         [DllImport("comctl32.dll")] public static extern bool RemoveWindowSubclass(IntPtr hWnd, SubClassProc pfnSubclass, IntPtr uIdSubclass);
+    }
+
+    internal static class AnimationExtensions
+    {
+        public static Microsoft.UI.Composition.CompositionScopedBatch CreateBatch(this Microsoft.UI.Composition.Compositor compositor) => compositor.CreateScopedBatch(Microsoft.UI.Composition.CompositionBatchTypes.Animation);
+        public static Microsoft.UI.Composition.CompositionAnimation Start(this Microsoft.UI.Composition.CompositionAnimation animation, UIElement element, string property)
+        {
+            var visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(element);
+            visual.StartAnimation(property, animation);
+            return animation;
+        }
+        public static Microsoft.UI.Composition.ScalarKeyFrameAnimation CreateDoubleAnimation(this UIElement element, double from, double to, int durationMs)
+        {
+            var compositor = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(element).Compositor;
+            var anim = compositor.CreateScalarKeyFrameAnimation();
+            anim.InsertKeyFrame(0f, (float)from);
+            anim.InsertKeyFrame(1f, (float)to);
+            anim.Duration = TimeSpan.FromMilliseconds(durationMs);
+            return anim;
+        }
     }
 }
