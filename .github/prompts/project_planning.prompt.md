@@ -47,14 +47,14 @@ For each phase, identify 3-5 PRs that are:
 ## Step 5: Create PR Breakdown
 For each PR, specify:
 - **Number/Name:** e.g., "1.1: Core Infrastructure"
-- **Branch Name:** kebab-case, descriptive
+- **Branch Name:** kebab-case, descriptive, includes the phase number, i.e. `1.1-core-infrastructure`
 - **Description:** One sentence of what it accomplishes
 - **Dependencies:** What must be done first?
 - **Tech Details:** Key files, APIs, patterns used
 
 ## Step 6: Output Master Plan Document
 
-Once the user approves the architecture and phase breakdown, generate and output the complete master plan using the <plan_output_format>.
+Once the user approves the architecture and phase breakdown, generate and output the complete master plan using the <plan_output_format>. Save to a folder named after the feature or task in the "plans" directory as "plan.md".
 </workflow>
 
 <plan_research>
