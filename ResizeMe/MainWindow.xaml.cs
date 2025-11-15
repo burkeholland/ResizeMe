@@ -102,8 +102,8 @@ namespace ResizeMe
                 {
                     var windowId = Win32Interop.GetWindowIdFromWindow(_windowHandle);
                     _appWindow = AppWindow.GetFromWindowId(windowId);
-                    // Modern card-based layout with proper spacing
-                    _appWindow?.Resize(new SizeInt32(400, 450));
+                    // Modern card-based layout with minimal width and increased vertical space for more items
+                    _appWindow?.Resize(new SizeInt32(320, 540));
                     WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_HIDE);
                 }
                 _isVisible = false;
@@ -250,38 +250,64 @@ namespace ResizeMe
 
             foreach (var preset in _presetManager.Presets)
             {
-                string glyph = preset.Width switch
+                // No icon glyphs in minimal floating UI — we only display name + dimensions
+
+                // Match the compact settings list item template: small icon + name + dimensions
+                var itemBorder = new Border
                 {
-                    <= 1024 => "\xE7F8",
-                    <= 1366 => "\xE80A",
-                    <= 1920 => "\xE959",
-                    _ => "\xE9F9"
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(8, 6, 8, 6),
+                    Margin = new Thickness(0, 1, 0, 1)
                 };
 
-                var stack = new StackPanel
+                var itemGrid = new Grid();
+                itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                var itemIcon = new FontIcon
                 {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 12,
-                    Children =
-                    {
-                        new FontIcon{FontFamily=new Microsoft.UI.Xaml.Media.FontFamily("Segoe Fluent Icons"), Glyph=glyph, FontSize=20, Opacity=0.9},
-                        new StackPanel
-                        {
-                            Orientation = Orientation.Vertical,
-                            Spacing = 2,
-                            VerticalAlignment = VerticalAlignment.Center,
-                            Children =
-                            {
-                                new TextBlock{Text=preset.Name, FontWeight= FontWeights.SemiBold, FontSize=16},
-                                new TextBlock{Text=$"{preset.Width} × {preset.Height}", Opacity=0.8, FontSize=13}
-                            }
-                        }
-                    }
+                    FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe Fluent Icons"),
+                    Glyph = "\xE7C4",
+                    FontSize = 14,
+                    Opacity = 0.9,
+                    // Use settings view accent color when available
+                    Foreground = resources?.TryGetValue("AccentTextFillColorSecondaryBrush", out var accentBrush) == true ? accentBrush as Microsoft.UI.Xaml.Media.Brush : null,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 8, 0)
                 };
+                Grid.SetColumn(itemIcon, 0);
+
+                var itemTextPanel = new StackPanel { Orientation = Orientation.Vertical, VerticalAlignment = VerticalAlignment.Center };
+
+                // Reuse app styles if available (PresetHeaderTextStyle and PresetSubTextStyle)
+                Style headerStyle = null;
+                Style subTextStyle = null;
+                // reuse 'resources' defined above for styles and brushes
+                if (resources != null)
+                {
+                    if (resources.TryGetValue("PresetHeaderTextStyle", out var hs) && hs is Style) headerStyle = (Style)hs;
+                    if (resources.TryGetValue("PresetSubTextStyle", out var ss) && ss is Style) subTextStyle = (Style)ss;
+                }
+
+                var nameText = new TextBlock { Text = preset.Name, FontWeight = FontWeights.SemiBold };
+                if (headerStyle != null) nameText.Style = headerStyle; else nameText.FontSize = 13;
+
+                var sizeText = new TextBlock { Text = $"{preset.Width} x {preset.Height}", Opacity = 0.8 };
+                if (subTextStyle != null) sizeText.Style = subTextStyle; else sizeText.FontSize = 11;
+
+                itemTextPanel.Children.Add(nameText);
+                itemTextPanel.Children.Add(sizeText);
+                Grid.SetColumn(itemTextPanel, 1);
+
+                itemGrid.Children.Add(itemIcon);
+                itemGrid.Children.Add(itemTextPanel);
+                // Match settings item background if available
+                if (resources?.TryGetValue("ControlFillColorDefaultBrush", out var bg) == true && bg is Microsoft.UI.Xaml.Media.Brush borderBg) itemBorder.Background = borderBg;
+                itemBorder.Child = itemGrid;
 
                 var btn = new Button
                 {
-                    Content = stack,
+                    Content = itemBorder,
                     Tag = $"{preset.Width}x{preset.Height}",
                     Margin = new Thickness(0,0,0,0)
                 };
@@ -290,8 +316,9 @@ namespace ResizeMe
                     btn.Style = baseStyle;
                 }
                 btn.Height = double.NaN;
-                btn.MinHeight = 64;
-                btn.Padding = new Thickness(16, 12, 16, 12);
+                btn.MinHeight = 44;
+                // remove extra button padding — inner border already provides the desired spacing
+                btn.Padding = new Thickness(0);
                 btn.HorizontalContentAlignment = HorizontalAlignment.Left;
                 btn.VerticalContentAlignment = VerticalAlignment.Center;
                 btn.Click += PresetButton_Click;

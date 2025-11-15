@@ -10,8 +10,8 @@
         <MicaBackdrop Kind="BaseAlt"/>
     </Window.SystemBackdrop>
 
-    <Grid x:Name="RootGrid" Background="{ThemeResource LayerFillColorDefaultBrush}" 
-          Padding="16" MaxWidth="400" MinWidth="360">
+        <Grid x:Name="RootGrid" Background="{ThemeResource LayerFillColorDefaultBrush}" 
+            Padding="8" MaxWidth="340" MinWidth="280">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -33,12 +33,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 
-                <FontIcon Grid.Column="0" 
-                         FontFamily="Segoe Fluent Icons" 
-                         Glyph="&#xE8B9;" 
-                         FontSize="20" 
-                         Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                         VerticalAlignment="Center"/>
+                <!-- Removed header icon for minimal UI -->
                 
                 <StackPanel Grid.Column="1" 
                            Margin="12,0,12,0"
@@ -53,16 +48,13 @@
                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
                 
-                <Button x:Name="SettingsButton" 
-                       Grid.Column="2"
-                       Style="{StaticResource ToolbarIconButtonStyle}" 
-                       ToolTipService.ToolTip="Settings" 
-                       Click="SettingsButton_Click"
-                       VerticalAlignment="Center">
-                    <FontIcon FontFamily="Segoe Fluent Icons" 
-                             Glyph="&#xE713;" 
-                             FontSize="16"/>
-                </Button>
+                  <Button x:Name="SettingsButton" 
+                      Grid.Column="2"
+                      Style="{StaticResource ToolbarIconButtonStyle}" 
+                      ToolTipService.ToolTip="Settings" 
+                      Click="SettingsButton_Click"
+                      VerticalAlignment="Center"
+                      Content="Settings"/>
             </Grid>
         </Border>
 
@@ -83,7 +75,7 @@
                     
                     <StackPanel x:Name="DynamicPresetsPanel" 
                                Orientation="Vertical" 
-                               Spacing="8"/>
+                               Spacing="6"/>
                     
                     <TextBlock x:Name="PresetHint" 
                               Text="Customize presets in Settings" 
