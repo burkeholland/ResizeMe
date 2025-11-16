@@ -38,6 +38,7 @@ namespace ResizeMe
         private List<WindowInfo> _availableWindows = new();
         private string? _activePresetTag;
         private int _presetIndex = -1;
+        private bool _centerOnResize;
         private TrayIconManager? _trayIcon;
 
         private WinApiSubClass.SubClassProc? _subclassProc;
@@ -55,6 +56,20 @@ namespace ResizeMe
             AttachKeyDownHandler();
             Activated += OnWindowActivated;
             Closed += Window_Closed;
+
+            // Load persisted "center on resize" preference
+            try
+            {
+                _centerOnResize = ResizeMe.Services.UserPreferences.CenterOnResize;
+                if (CenterOnResizeToggle != null)
+                {
+                    CenterOnResizeToggle.IsOn = _centerOnResize;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"MainWindow: Error reading CenterOnResize preference: {ex.Message}");
+            }
         }
 
         private void AttachWindowLoadedHandler()
@@ -368,6 +383,19 @@ namespace ResizeMe
                 if (result.Success)
                 {
                     StatusText.Text = $"✅ {sizeTag}";
+                    // If user enabled center-on-resize, center the external window on its monitor
+                    if (_centerOnResize)
+                    {
+                        try
+                        {
+                            WindowPositionHelper.CenterExternalWindowOnMonitor(targetWindow);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"MainWindow: Error centering window after resize: {ex.Message}");
+                        }
+                    }
+
                     _windowResizer.ActivateWindow(targetWindow);
                     SetActivePreset(sizeTag);
                     await Task.Delay(600);
@@ -482,6 +510,24 @@ namespace ResizeMe
             _isAlwaysOnTop = !_isAlwaysOnTop;
             ApplyAlwaysOnTop();
             StatusText.Text = _isAlwaysOnTop ? "Pinned" : "Normal";
+        }
+
+        // Toggle handler for CenterOnResize preference
+        private void CenterOnResizeToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (CenterOnResizeToggle != null)
+                {
+                    _centerOnResize = CenterOnResizeToggle.IsOn;
+                    ResizeMe.Services.UserPreferences.CenterOnResize = _centerOnResize;
+                    StatusText.Text = _centerOnResize ? "Center on resize: On" : "Center on resize: Off";
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"MainWindow: Error writing CenterOnResize preference: {ex.Message}");
+            }
         }
 
         private void ApplyAlwaysOnTop()

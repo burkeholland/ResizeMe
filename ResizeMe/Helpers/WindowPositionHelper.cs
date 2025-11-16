@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using WinRT.Interop;
 using ResizeMe.Models;
+using ResizeMe.Native;
 
 namespace ResizeMe.Helpers
 {
@@ -327,6 +328,61 @@ namespace ResizeMe.Helpers
             catch (Exception ex)
             {
                 Debug.WriteLine($"WindowPositionHelper: Exception centering on window: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Centers an external window (not the WinUI menu itself) on the monitor containing the window.
+        /// Safe no-op if the handle is invalid or monitor info can't be determined.
+        /// </summary>
+        /// <param name="windowInfo">WindowInfo representing the external window</param>
+        public static void CenterExternalWindowOnMonitor(WindowInfo windowInfo)
+        {
+            if (windowInfo == null || windowInfo.Handle == IntPtr.Zero) return;
+
+            try
+            {
+                // Get the current bounds (more accurate than cached WindowInfo at times)
+                if (!WindowsApi.GetWindowRect(windowInfo.Handle, out var rect))
+                {
+                    Debug.WriteLine("WindowPositionHelper: Failed to GetWindowRect for target window.");
+                    return;
+                }
+
+                var windowWidth = rect.Width;
+                var windowHeight = rect.Height;
+
+                // Compute center point of the window to find the correct monitor
+                var center = new POINT { X = rect.Left + (windowWidth / 2), Y = rect.Top + (windowHeight / 2) };
+
+                IntPtr monitor = MonitorFromPoint(center, MONITOR_DEFAULTTONEAREST);
+                var monitorInfo = MONITORINFO.Default;
+                if (!GetMonitorInfo(monitor, ref monitorInfo))
+                {
+                    Debug.WriteLine("WindowPositionHelper: Failed to get monitor info for external window.");
+                    return;
+                }
+
+                var workArea = monitorInfo.rcWork;
+
+                int targetX = workArea.Left + (workArea.Width - windowWidth) / 2;
+                int targetY = workArea.Top + (workArea.Height - windowHeight) / 2;
+
+                bool success = SetWindowPos(windowInfo.Handle, IntPtr.Zero, targetX, targetY, 0, 0,
+                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+                if (!success)
+                {
+                    Debug.WriteLine($"WindowPositionHelper: Failed to center external window, error {Marshal.GetLastWin32Error()}");
+                }
+                else
+                {
+                    Debug.WriteLine($"WindowPositionHelper: Centered external window at {targetX},{targetY}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"WindowPositionHelper: Exception centering external window: {ex.Message}");
             }
         }
     }

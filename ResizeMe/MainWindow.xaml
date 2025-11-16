@@ -83,6 +83,8 @@
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         HorizontalAlignment="Center"
                         Margin="0,8,0,0" />
+
+                    <!-- Quick Resize toggle removed from ScrollViewer and moved to footer -->
                 </StackPanel>
             </ScrollViewer>
         </Border>
@@ -95,10 +97,16 @@
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             Padding="16,12"
             Margin="0,12,0,0">
-            <TextBlock Text="Win+Shift+F12 to toggle"
-                FontSize="12"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                HorizontalAlignment="Center" />
+            <StackPanel Orientation="Vertical">
+                <ToggleSwitch x:Name="CenterOnResizeToggle"
+                              Header="Center after resize"
+                              Toggled="CenterOnResizeToggle_Toggled"
+                              Margin="0,0,0,8" />
+                <TextBlock Text="Win+Shift+F12 to toggle"
+                    FontSize="12"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    HorizontalAlignment="Center" />
+            </StackPanel>
         </Border>
     </Grid>
 </Window>
