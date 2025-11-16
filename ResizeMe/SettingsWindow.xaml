@@ -35,163 +35,160 @@
       </StackPanel>
     </Border>
 
-    <!-- Content Scroll Region -->
-    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-      <Grid ColumnSpacing="20">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        
-        <!-- Current Presets Card -->
-        <Border Grid.Column="0"
+    <!-- Content region - only the preset list should scroll so the add preset card remains visible -->
+        <Grid Grid.Row="1" ColumnSpacing="20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Current Presets Card -->
+            <Border Grid.Column="0"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 CornerRadius="8"
                 BorderThickness="1"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 Padding="16">
-          <StackPanel Spacing="12">
-            <TextBlock Text="Current Presets" 
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.RowSpacing>16</Grid.RowSpacing>
+
+                    <TextBlock Grid.Row="0" Text="Current Presets" 
                       FontWeight="SemiBold" 
                       FontSize="16"
                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-            
-            <ListView x:Name="PresetList" 
+
+                    <ListView Grid.Row="1" x:Name="PresetList" 
                      SelectionMode="Single" 
-                     MinHeight="300"
-                     MaxHeight="400"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
                      Background="{ThemeResource ControlFillColorSecondaryBrush}"
                      CornerRadius="6"
                      Padding="8">
-              <ListView.ItemTemplate>
-                <DataTemplate>
-                  <Border Background="{ThemeResource ControlFillColorDefaultBrush}"
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{ThemeResource ControlFillColorDefaultBrush}"
                          CornerRadius="4"
                          Padding="8,6"
                          Margin="0,1">
-                    <Grid>
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                      </Grid.ColumnDefinitions>
-                      <FontIcon Grid.Column="0"
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <FontIcon Grid.Column="0"
                                FontFamily="Segoe Fluent Icons" 
                                Glyph="&#xE7C4;" 
                                FontSize="14" 
                                Foreground="{ThemeResource AccentTextFillColorSecondaryBrush}"
                                VerticalAlignment="Center" 
                                Margin="0,0,8,0"/>
-                      <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Name}" 
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" 
                                   FontWeight="SemiBold" 
                                   FontSize="13"
                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" 
+                                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" 
                                   FontSize="11">
                           <Run Text="{Binding Width}" />
                           <Run Text=" x " />
                           <Run Text="{Binding Height}" />
-                        </TextBlock>
-                      </StackPanel>
-                    </Grid>
-                  </Border>
-                </DataTemplate>
-              </ListView.ItemTemplate>
-            </ListView>
-            
-            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
-              <Button x:Name="RemoveButton" 
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Left" Margin="0,8,0,0">
+                        <Button x:Name="RemoveButton" 
                      Content="Remove" 
                      Click="RemoveButton_Click"
-                     Padding="10,6"
+                     Padding="16,8"
                      FontSize="12"
                      CornerRadius="4" />
-              <Button x:Name="ResetButton" 
+                        <Button x:Name="ResetButton" 
                      Content="Reset" 
                      Click="ResetButton_Click"
-                     Padding="10,6"
+                     Padding="16,8"
                      FontSize="12"
                      CornerRadius="4" />
-            </StackPanel>
-          </StackPanel>
-        </Border>
+                    </StackPanel>
+                </Grid>
+            </Border>
 
-        <!-- Add New Preset Card -->
-        <Border Grid.Column="1"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                CornerRadius="8"
-                BorderThickness="1"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                Padding="16">
-          <StackPanel Spacing="16" VerticalAlignment="Top">
-            <TextBlock Text="Add New Preset" 
-                      FontWeight="SemiBold" 
-                      FontSize="16"
-                      Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-            
-            <StackPanel Spacing="12">
-              <TextBox x:Name="NameInput" 
-                      PlaceholderText="Preset name"
-                      FontSize="14"
-                      Padding="10"
-                      CornerRadius="6" />
-              
-              <StackPanel Spacing="8">
-                <TextBox x:Name="WidthInput" 
-                        PlaceholderText="Width (e.g. 1920)"
-                        InputScope="Number"
-                        FontSize="14"
-                        Padding="10"
-                        CornerRadius="6" />
-                        
-                <TextBox x:Name="HeightInput" 
-                        PlaceholderText="Height (e.g. 1080)"
-                        InputScope="Number"
-                        FontSize="14"
-                        Padding="10"
-                        CornerRadius="6" />
-              </StackPanel>
-                        
-              <Button x:Name="AddButton" 
-                     Content="Add Preset" 
-                     Style="{StaticResource PrimaryActionButtonStyle}" 
-                     Click="AddButton_Click"
-                     Padding="16,10"
-                     CornerRadius="6"
-                     HorizontalAlignment="Stretch"
-                     FontSize="14" />
-              
-              <TextBlock x:Name="ValidationText" 
-                        Foreground="{ThemeResource SystemFillColorCautionBrush}" 
-                        FontSize="11" 
-                        TextWrapping="Wrap"
-                        Visibility="Collapsed" />
-              <TextBlock x:Name="StatusText" 
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" 
-                        FontSize="11" 
-                        TextWrapping="Wrap" />
-            </StackPanel>
-          </StackPanel>
-        </Border>
-      </Grid>
-    </ScrollViewer>
+            <!-- Add New Preset Card -->
+            <StackPanel Grid.Column="1">
+                <Border
+     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+     CornerRadius="8"
+     BorderThickness="1"
+     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+     Padding="16">
+                    <StackPanel Spacing="16" VerticalAlignment="Top">
+                        <TextBlock Text="Add New Preset" 
+           FontWeight="SemiBold" 
+           FontSize="16"
+           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
 
-    <!-- Footer Card -->
-    <Border Grid.Row="2" 
-            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-            CornerRadius="8"
-            BorderThickness="1"
-            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            Padding="20,16"
-            Margin="0,16,0,0">
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-        <Button x:Name="CloseButton" 
-               Content="Done" 
-               Click="CloseButton_Click"
-               Style="{StaticResource PrimaryActionButtonStyle}"
-               Padding="20,12"
-               CornerRadius="6" />
-      </StackPanel>
-    </Border>
-  </Grid>
+                        <StackPanel Spacing="12">
+                            <TextBox x:Name="NameInput" 
+           PlaceholderText="Preset name"
+           FontSize="14"
+           Padding="10"
+           CornerRadius="6" />
+
+                            <StackPanel Spacing="8">
+                                <TextBox x:Name="WidthInput" 
+             PlaceholderText="Width (e.g. 1920)"
+             InputScope="Number"
+             FontSize="14"
+             Padding="10"
+             CornerRadius="6" />
+
+                                <TextBox x:Name="HeightInput" 
+             PlaceholderText="Height (e.g. 1080)"
+             InputScope="Number"
+             FontSize="14"
+             Padding="10"
+             CornerRadius="6" />
+                            </StackPanel>
+
+                            <Button x:Name="AddButton" 
+          Content="Add Preset" 
+          Style="{StaticResource PrimaryActionButtonStyle}" 
+          Click="AddButton_Click"
+          Padding="16,10"
+          CornerRadius="6"
+          HorizontalAlignment="Stretch"
+          FontSize="14" />
+
+                            <TextBlock x:Name="ValidationText" 
+             Foreground="{ThemeResource SystemFillColorCautionBrush}" 
+             FontSize="11" 
+             TextWrapping="Wrap"
+             Visibility="Collapsed" />
+                            <TextBlock x:Name="StatusText" 
+             Foreground="{ThemeResource TextFillColorSecondaryBrush}" 
+             FontSize="11" 
+             TextWrapping="Wrap" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                <StackPanel Spacing="12" Margin="0,20,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="CloseButton" 
+                    Content="Done" 
+                    Click="CloseButton_Click"
+                    Style="{StaticResource PrimaryActionButtonStyle}"
+                    Padding="20,12"
+                    CornerRadius="6" />
+                </StackPanel>
+            </StackPanel>
+           
+        </Grid>
+    </Grid>
 </Window>
