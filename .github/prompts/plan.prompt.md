@@ -1,5 +1,5 @@
 ---
-name: project_planning
+name: plan
 description: Collaborates with user to create high-level project architecture, phases, and PR breakdown
 ---
 

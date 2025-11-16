@@ -1,5 +1,5 @@
 ---
-name: pr_implementation_generator
+name: generate
 description: Generates all PR implementation plans from a master project plan with markdown checkboxes and complete, copy-paste ready code
 ---
 
