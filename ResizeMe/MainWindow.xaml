@@ -7,98 +7,98 @@
     Title="ResizeMe">
 
     <Window.SystemBackdrop>
-        <MicaBackdrop Kind="BaseAlt"/>
+        <MicaBackdrop Kind="BaseAlt" />
     </Window.SystemBackdrop>
 
-        <Grid x:Name="RootGrid" Background="{ThemeResource LayerFillColorDefaultBrush}" 
-            Padding="8" MaxWidth="340" MinWidth="280">
+    <Grid x:Name="RootGrid" Background="{ThemeResource LayerFillColorDefaultBrush}"
+        Padding="8" MaxWidth="340" MinWidth="280">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Header Card -->
-        <Border Grid.Row="0" 
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                CornerRadius="8"
-                BorderThickness="1"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                Margin="0,0,0,12"
-                Padding="16,12">
+        <Border Grid.Row="0"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            CornerRadius="8"
+            BorderThickness="1"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            Margin="0,0,0,12"
+            Padding="16,12">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                
+
                 <!-- Removed header icon for minimal UI -->
-                
-                <StackPanel Grid.Column="1" 
-                           Margin="12,0,12,0"
-                           VerticalAlignment="Center">
-                    <TextBlock Text="ResizeMe" 
-                              FontWeight="SemiBold" 
-                              FontSize="16" 
-                              Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
-                    <TextBlock x:Name="StatusText" 
-                              Text="Ready" 
-                              FontSize="12" 
-                              Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
+                <StackPanel Grid.Column="1"
+                    Margin="12,0,12,0"
+                    VerticalAlignment="Center">
+                    <TextBlock Text="ResizeMe"
+                        FontWeight="SemiBold"
+                        FontSize="16"
+                        Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    <TextBlock x:Name="StatusText"
+                        Text="Ready"
+                        FontSize="12"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
-                
-                  <Button x:Name="SettingsButton" 
-                      Grid.Column="2"
-                      Style="{StaticResource ToolbarIconButtonStyle}" 
-                      ToolTipService.ToolTip="Settings" 
-                      Click="SettingsButton_Click"
-                      VerticalAlignment="Center"
-                      Content="Settings"/>
+
+                <Button x:Name="SettingsButton"
+                    Grid.Column="2"
+                    Style="{StaticResource ToolbarIconButtonStyle}"
+                    ToolTipService.ToolTip="Settings"
+                    Click="SettingsButton_Click"
+                    VerticalAlignment="Center"
+                    Content="Settings" />
             </Grid>
         </Border>
 
         <!-- Content Card -->
-        <Border Grid.Row="1" 
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                CornerRadius="8"
-                BorderThickness="1"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                Padding="16">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" 
-                         HorizontalScrollBarVisibility="Disabled">
+        <Border Grid.Row="1"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            CornerRadius="8"
+            BorderThickness="1"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            Padding="16">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Spacing="16">
-                    <TextBlock Text="Quick Resize" 
-                              FontWeight="SemiBold" 
-                              FontSize="18" 
-                              Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
-                    
-                    <StackPanel x:Name="DynamicPresetsPanel" 
-                               Orientation="Vertical" 
-                               Spacing="6"/>
-                    
-                    <TextBlock x:Name="PresetHint" 
-                              Text="Customize presets in Settings" 
-                              FontSize="12" 
-                              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                              HorizontalAlignment="Center"
-                              Margin="0,8,0,0"/>
+                    <TextBlock Text="Quick Resize"
+                        FontWeight="SemiBold"
+                        FontSize="18"
+                        Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+
+                    <StackPanel x:Name="DynamicPresetsPanel"
+                        Orientation="Vertical"
+                        Spacing="6" />
+
+                    <TextBlock x:Name="PresetHint"
+                        Text="Customize presets in Settings"
+                        FontSize="12"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        HorizontalAlignment="Center"
+                        Margin="0,8,0,0" />
                 </StackPanel>
             </ScrollViewer>
         </Border>
 
         <!-- Footer -->
-        <Border Grid.Row="2" 
-                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" 
-                CornerRadius="8" 
-                BorderThickness="1"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                Padding="16,12"
-                Margin="0,12,0,0">
-            <TextBlock Text="Win+Shift+F12 to toggle" 
-                      FontSize="12" 
-                      Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                      HorizontalAlignment="Center"/>
+        <Border Grid.Row="2"
+            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+            CornerRadius="8"
+            BorderThickness="1"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            Padding="16,12"
+            Margin="0,12,0,0">
+            <TextBlock Text="Win+Shift+F12 to toggle"
+                FontSize="12"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                HorizontalAlignment="Center" />
         </Border>
     </Grid>
 </Window>
