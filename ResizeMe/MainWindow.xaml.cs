@@ -189,7 +189,15 @@ namespace ResizeMe
             _hotKeyManager = new HotKeyManager(_windowHandle);
             _hotKeyManager.HotKeyPressed += (_, _) => ToggleVisibility();
             bool success = _hotKeyManager.RegisterHotKey();
-            StatusText.Text = success ? "Ready" : "Hotkey failed";
+            if (success)
+            {
+                // Show the configured hotkey in status
+                StatusText.Text = $"Ready ({Services.UserPreferences.HotKeyModifiers}+{Services.UserPreferences.HotKeyCode})";
+            }
+            else
+            {
+                StatusText.Text = "Hotkey failed";
+            }
             if (!_isSubclassRegistered)
             {
                 _subclassProc = WndProcSubClass;

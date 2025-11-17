@@ -8,6 +8,9 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
+using System.Collections.Generic;
+using Microsoft.UI.Input;
+using Windows.UI.Core;
 
 namespace ResizeMe
 {
@@ -29,6 +32,7 @@ namespace ResizeMe
             // first activation shows the correctly-sized window without a flash.
             SetWindowSize();
             _ = InitializeAsync();
+            LoadHotkeyDisplay();
             // Expose a test-only button for frequently resetting local preferences while debugging
             try
             {
@@ -58,8 +62,8 @@ namespace ResizeMe
                 var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
                 if (appWindow != null)
                 {
-                    // Default settings window size
-                    appWindow.Resize(new Windows.Graphics.SizeInt32(625, 550));
+                    // Default settings window size - increased width and height for hotkey card
+                    appWindow.Resize(new Windows.Graphics.SizeInt32(700, 695));
                 }
             }
             catch (System.ArgumentException)
@@ -72,7 +76,24 @@ namespace ResizeMe
         {
             _view.Clear();
             foreach (var p in _manager.Presets.OrderBy(p => p.Name)) _view.Add(p);
-            StatusText.Text = $"Loaded {_view.Count} presets";
+        }
+
+        // Hotkey capture state
+        private string _capturedModifiers = string.Empty; // temp capture store
+        private string _capturedKey = string.Empty;       // temp capture store
+        private bool _capturing;
+        private TextBlock? _captureFlyoutStatusControl;
+
+        private void LoadHotkeyDisplay()
+        {
+            try
+            {
+                CurrentHotkeyText.Text = $"Current: {Services.UserPreferences.HotKeyModifiers}+{Services.UserPreferences.HotKeyCode}";
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"LoadHotkeyDisplay error: {ex.Message}");
+            }
         }
 
         private async void AddButton_Click(object sender, RoutedEventArgs e)
@@ -103,7 +124,6 @@ namespace ResizeMe
             }
             RefreshView();
             NotifyPresetsChanged();
-            StatusText.Text = $"Successfully added '{preset.Name}' preset";
             NameInput.Text = WidthInput.Text = HeightInput.Text = string.Empty;
             NameInput.Focus(FocusState.Programmatic);
         }
@@ -114,7 +134,6 @@ namespace ResizeMe
             if (PresetList.SelectedItem is PresetSize ps)
             {
                 bool removed = await _manager.RemovePresetAsync(ps.Name);
-                StatusText.Text = removed ? $"Removed {ps.Name}" : "Remove failed";
                 if (removed)
                 {
                     RefreshView();
@@ -129,7 +148,6 @@ namespace ResizeMe
             await _manager.ResetToDefaultsAsync();
             RefreshView();
             NotifyPresetsChanged();
-            StatusText.Text = "Defaults restored";
         }
 
         private void OnDimensionKeyUp(object sender, KeyRoutedEventArgs e)
@@ -147,11 +165,9 @@ namespace ResizeMe
                 ApplicationData.Current.LocalSettings.Values.Remove("FirstMinimizeNotificationShown");
                 // Optionally clear the first-run flag if you want the settings window to reappear on next start
                 // ApplicationData.Current.LocalSettings.Values.Remove("FirstRunCompleted");
-                StatusText.Text = "First minimize notification reset";
             }
             catch (Exception ex)
             {
-                StatusText.Text = "Reset failed";
                 System.Diagnostics.Debug.WriteLine($"Reset prefs error: {ex.Message}");
             }
         }
@@ -159,6 +175,165 @@ namespace ResizeMe
         private void NotifyPresetsChanged()
         {
             PresetsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private async void CustomizeHotkeyButton_Click(object sender, RoutedEventArgs e)
+        {
+            HotkeyErrorText.Visibility = Visibility.Collapsed;
+            _capturedModifiers = string.Empty;
+            _capturedKey = string.Empty;
+            _capturing = true;
+
+            // Use a Flyout anchored to the Customize button to avoid overlapping the titlebar
+            var flyout = new Flyout();
+            var panel = new StackPanel { Spacing = 8, Padding = new Thickness(12) };
+            var instruction = new TextBlock { Text = "Press key combination now...", FontSize = 14 };
+            var captureStatus = new TextBlock { Text = "", FontSize = 13 };
+            _captureFlyoutStatusControl = captureStatus;
+            var btnPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
+            var applyBtn = new Button { Content = "Apply", Padding = new Thickness(12, 6, 12, 6) };
+            var cancelBtn = new Button { Content = "Cancel", Padding = new Thickness(12, 6, 12, 6) };
+            btnPanel.Children.Add(cancelBtn);
+            btnPanel.Children.Add(applyBtn);
+            panel.Children.Add(instruction);
+            panel.Children.Add(captureStatus);
+            panel.Children.Add(btnPanel);
+            flyout.Content = panel;
+
+            var tcs = new System.Threading.Tasks.TaskCompletionSource<bool?>();
+            applyBtn.Click += (_, _) => tcs.TrySetResult(true);
+            cancelBtn.Click += (_, _) => tcs.TrySetResult(false);
+
+            FrameworkElement? fe = this.Content as FrameworkElement;
+            if (fe != null) fe.KeyDown += SettingsCapture_KeyDown;
+            flyout.ShowAt(CustomizeHotkeyButton);
+            var result = await tcs.Task;
+            flyout.Hide();
+            if (fe != null) fe.KeyDown -= SettingsCapture_KeyDown;
+            _captureFlyoutStatusControl = null;
+            _capturing = false;
+
+            if (result == true)
+            {
+                if (string.IsNullOrWhiteSpace(_capturedKey))
+                {
+                    HotkeyErrorText.Text = "No key captured.";
+                    HotkeyErrorText.Visibility = Visibility.Visible;
+                    return;
+                }
+
+                var mods = string.IsNullOrWhiteSpace(_capturedModifiers) ? "WIN+SHIFT" : _capturedModifiers; // enforce at least one
+                if (Services.HotKeyManager.IsReserved(mods, _capturedKey))
+                {
+                    HotkeyErrorText.Text = "This hotkey is reserved by Windows.";
+                    HotkeyErrorText.Visibility = Visibility.Visible;
+                    return;
+                }
+
+                UserPreferences.HotKeyModifiers = mods;
+                UserPreferences.HotKeyCode = _capturedKey;
+
+                // Re-register (use reflection bridge to main window)
+                TryReRegisterFromMainWindow();
+                LoadHotkeyDisplay();
+                // (Status label removed) Updated; use HotkeyErrorText for errors only.
+            }
+        }
+
+        private void SettingsCapture_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            if (!_capturing) return;
+            var mods = new List<string>();
+            var core = Windows.System.VirtualKey.None;
+
+            if ((Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control) & CoreVirtualKeyStates.Down) != 0)
+                mods.Add("CTRL");
+            if ((Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Menu) & CoreVirtualKeyStates.Down) != 0)
+                mods.Add("ALT");
+            if ((Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift) & CoreVirtualKeyStates.Down) != 0)
+                mods.Add("SHIFT");
+            // Windows key detection: check left/right variants as modifiers
+            if ((Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.LeftWindows) & CoreVirtualKeyStates.Down) != 0
+                || (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.RightWindows) & CoreVirtualKeyStates.Down) != 0)
+                mods.Add("WIN");
+
+            core = e.Key;
+            // Treat left/right variants of modifiers and Windows keys as modifiers as well
+            if (core == Windows.System.VirtualKey.Control || core == Windows.System.VirtualKey.Menu || core == Windows.System.VirtualKey.Shift
+                || core == Windows.System.VirtualKey.LeftControl || core == Windows.System.VirtualKey.RightControl
+                || core == Windows.System.VirtualKey.LeftShift || core == Windows.System.VirtualKey.RightShift
+                || core == Windows.System.VirtualKey.LeftWindows || core == Windows.System.VirtualKey.RightWindows)
+            {
+                _capturedModifiers = string.Join("+", mods);
+                // Update live status for modifiers-only presses
+                var live = $"{(_capturedModifiers.Length > 0 ? _capturedModifiers + "+" : string.Empty)}{_capturedKey}";
+                if (_captureFlyoutStatusControl != null) _captureFlyoutStatusControl.Text = live;
+                return;
+            }
+
+            string keyToken = MapKey(core);
+            _capturedKey = keyToken;
+            _capturedModifiers = string.Join("+", mods);
+            var live2 = $"{(_capturedModifiers.Length > 0 ? _capturedModifiers + "+" : string.Empty)}{_capturedKey}";
+            if (_captureFlyoutStatusControl != null) _captureFlyoutStatusControl.Text = live2;
+            if (_captureFlyoutStatusControl != null) _captureFlyoutStatusControl.Text = live2;
+            e.Handled = true;
+        }
+
+        private static string MapKey(Windows.System.VirtualKey key)
+        {
+            if (key >= Windows.System.VirtualKey.Number0 && key <= Windows.System.VirtualKey.Number9)
+                return ((char)key).ToString();
+            if (key >= Windows.System.VirtualKey.A && key <= Windows.System.VirtualKey.Z)
+                return ((char)key).ToString();
+            if (key >= Windows.System.VirtualKey.F1 && key <= Windows.System.VirtualKey.F24)
+            {
+                int fNum = (int)key - (int)Windows.System.VirtualKey.F1 + 1;
+                return $"F{fNum}";
+            }
+            // OEM keys mapping (common punctuation keys)
+            // Some VirtualKey enums don't expose OEM names across SDKs; check numeric VK codes instead
+            int v = (int)key;
+            switch (v)
+            {
+                case 0xBB: // VK_OEM_PLUS
+                    return "+";
+                case 0xBC: // VK_OEM_COMMA
+                    return ",";
+                case 0xBD: // VK_OEM_MINUS
+                    return "-";
+                case 0xBE: // VK_OEM_PERIOD
+                    return ".";
+            }
+            return key.ToString().ToUpperInvariant();
+        }
+
+        private void ResetHotkeyButton_Click(object sender, RoutedEventArgs e)
+        {
+            UserPreferences.HotKeyModifiers = "WIN+SHIFT";
+            UserPreferences.HotKeyCode = "F12";
+            TryReRegisterFromMainWindow();
+            LoadHotkeyDisplay();
+            // (Status label removed) Reset to default acknowledged.
+            HotkeyErrorText.Visibility = Visibility.Collapsed;
+        }
+
+        private void TryReRegisterFromMainWindow()
+        {
+            try
+            {
+                var main = (Application.Current as App)?.Window as MainWindow;
+                var field = typeof(MainWindow).GetField("_hotKeyManager", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (main != null && field?.GetValue(main) is HotKeyManager hk)
+                {
+                    hk.ReRegister();
+                }
+            }
+            catch (Exception ex)
+            {
+                HotkeyErrorText.Text = $"Re-register failed: {ex.Message}";
+                HotkeyErrorText.Visibility = Visibility.Visible;
+            }
         }
     }
 }

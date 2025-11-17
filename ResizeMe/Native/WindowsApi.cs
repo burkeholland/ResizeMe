@@ -19,6 +19,11 @@ namespace ResizeMe.Native
         // Virtual key codes
         public const int VK_R = 0x52;
         public const int VK_F12 = 0x7B; // F12 virtual key code
+        // OEM virtual keys (common punctuation) - used for keys like +/- and punctuation
+        public const int VK_OEM_PLUS = 0xBB; // '+' key (US)
+        public const int VK_OEM_COMMA = 0xBC; // ',' key
+        public const int VK_OEM_MINUS = 0xBD; // '-' key
+        public const int VK_OEM_PERIOD = 0xBE; // '.' key
 
         /// <summary>
         /// Registers a hotkey with the system
