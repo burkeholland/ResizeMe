@@ -9,7 +9,7 @@
   <Grid Background="{ThemeResource LayerFillColorDefaultBrush}" Padding="20">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
-      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
@@ -27,12 +27,12 @@
           FontSize="24"
           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
           VerticalAlignment="Center" />
-        <TextBlock Text="Preset Settings"
+                <TextBlock Text="Preset Settings"
           FontSize="20"
           FontWeight="SemiBold"
           VerticalAlignment="Center"
           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-      </StackPanel>
+            </StackPanel>
     </Border>
 
     <!-- Content region - only the preset list should scroll so the add preset card remains visible -->
@@ -118,6 +118,15 @@
               Padding="16,8"
               FontSize="12"
               CornerRadius="4" />
+            <Button x:Name="ResetPrefsButton"
+              Content="Reset Prefs"
+              Click="ResetPrefsButton_Click"
+              Style="{StaticResource PrimaryActionButtonStyle}"
+              Padding="16,8"
+              FontSize="12"
+              CornerRadius="4"
+              Visibility="Collapsed"
+              HorizontalAlignment="Right"/>
           </StackPanel>
         </Grid>
       </Border>
@@ -178,47 +187,29 @@
         </Border>
         
         <!-- Hotkey Customization Card -->
-        <Border
+                <Border
           Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
           CornerRadius="8"
           BorderThickness="1"
           BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
           Padding="16"
           Margin="0,24,0,0">
-          <StackPanel Spacing="12">
-            <TextBlock Text="Global Hotkey" FontWeight="SemiBold" FontSize="16" />
-            <TextBlock x:Name="CurrentHotkeyText" FontSize="13" />
-            <StackPanel Orientation="Horizontal" Spacing="12">
-              <Button x:Name="CustomizeHotkeyButton" Content="Customize Hotkey"
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Global Hotkey" FontWeight="SemiBold" FontSize="16" />
+                        <TextBlock x:Name="CurrentHotkeyText" FontSize="13" />
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Button x:Name="CustomizeHotkeyButton" Content="Customize Hotkey"
                       Click="CustomizeHotkeyButton_Click"
                       Padding="16,8" />
-              <Button x:Name="ResetHotkeyButton" Content="Reset Default"
+                            <Button x:Name="ResetHotkeyButton" Content="Reset Default"
                       Click="ResetHotkeyButton_Click"
                       Padding="16,8" />
+                        </StackPanel>
+                        <!-- Hotkey status label removed as per request -->
+                        <TextBlock x:Name="HotkeyErrorText" FontSize="11" Foreground="{ThemeResource SystemFillColorCautionBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
-            <!-- Hotkey status label removed as per request -->
-            <TextBlock x:Name="HotkeyErrorText" FontSize="11" Foreground="{ThemeResource SystemFillColorCautionBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
-          </StackPanel>
-        </Border>
-        
-        <StackPanel Spacing="12" Margin="0,20,0,0" Orientation="Horizontal"
-          HorizontalAlignment="Right">
-          <Button x:Name="CloseButton"
-            Content="Done"
-            Click="CloseButton_Click"
-            Style="{StaticResource PrimaryActionButtonStyle}"
-            Padding="20,12"
-            CornerRadius="6" />
-            <Button x:Name="ResetPrefsButton"
-              Content="Reset Prefs (DEBUG)"
-              Click="ResetPrefsButton_Click"
-              Style="{StaticResource PrimaryActionButtonStyle}"
-              Padding="12,10"
-              CornerRadius="6"
-              Visibility="Collapsed"
-              Margin="8,0,0,0" />
-        </StackPanel>
-      </StackPanel>
 
     </Grid>
   </Grid>
