@@ -63,7 +63,7 @@ namespace ResizeMe
                 if (appWindow != null)
                 {
                     // Default settings window size - increased width and height for hotkey card
-                    appWindow.Resize(new Windows.Graphics.SizeInt32(700, 695));
+                    appWindow.Resize(new Windows.Graphics.SizeInt32(700, 600));
                 }
             }
             catch (System.ArgumentException)
@@ -145,9 +145,24 @@ namespace ResizeMe
 
         private async void ResetButton_Click(object sender, RoutedEventArgs e)
         {
-            await _manager.ResetToDefaultsAsync();
-            RefreshView();
-            NotifyPresetsChanged();
+            var dialog = new ContentDialog
+            {
+                Title = "Reset Presets",
+                Content = "Are you sure you want to reset presets to defaults? This cannot be undone.",
+                PrimaryButtonText = "Reset",
+                CloseButtonText = "Cancel"
+            };
+
+            // Ensure the dialog has a XamlRoot; otherwise ShowAsync will throw
+            var fe = this.Content as FrameworkElement;
+            if (fe != null) dialog.XamlRoot = fe.XamlRoot;
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                await _manager.ResetToDefaultsAsync();
+                RefreshView();
+                NotifyPresetsChanged();
+            }
         }
 
         private void OnDimensionKeyUp(object sender, KeyRoutedEventArgs e)
