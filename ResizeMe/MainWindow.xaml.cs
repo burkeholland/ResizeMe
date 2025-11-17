@@ -128,6 +128,19 @@ namespace ResizeMe
                 {
                     var windowId = Win32Interop.GetWindowIdFromWindow(_windowHandle);
                     _appWindow = AppWindow.GetFromWindowId(windowId);
+                    // Set window icon
+                    try
+                    {
+                        var iconPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "Assets", "AppIcon.ico");
+                        if (System.IO.File.Exists(iconPath))
+                        {
+                            _appWindow?.SetIcon(iconPath);
+                        }
+                    }
+                    catch (Exception iconEx)
+                    {
+                        Debug.WriteLine($"Failed to set window icon: {iconEx.Message}");
+                    }
                     // Modern card-based layout with minimal width and increased vertical space for more items
                     _appWindow?.Resize(new SizeInt32(320, 540));
                     WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_HIDE);

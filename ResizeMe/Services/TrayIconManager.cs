@@ -71,6 +71,13 @@ namespace ResizeMe.Services
         [DllImport("user32.dll")]
         private static extern IntPtr LoadIcon(IntPtr hInstance, IntPtr lpIconName);
 
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr LoadImage(IntPtr hInstance, string lpszName, uint uType, int cxDesired, int cyDesired, uint fuLoad);
+
+        private const uint IMAGE_ICON = 1;
+        private const uint LR_LOADFROMFILE = 0x00000010;
+        private const uint LR_DEFAULTSIZE = 0x00000040;
+
         public event EventHandler? ShowRequested;
         public event EventHandler? SettingsRequested;
         public event EventHandler? ExitRequested;
@@ -83,6 +90,28 @@ namespace ResizeMe.Services
         public bool Initialize()
         {
             if (_added) return true;
+            
+            // Try to load custom icon from AppIcon.ico
+            IntPtr hIcon = IntPtr.Zero;
+            try
+            {
+                var iconPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "Assets", "AppIcon.ico");
+                if (System.IO.File.Exists(iconPath))
+                {
+                    hIcon = LoadImage(IntPtr.Zero, iconPath, IMAGE_ICON, 16, 16, LR_LOADFROMFILE | LR_DEFAULTSIZE);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"TrayIconManager: Failed to load custom icon: {ex.Message}");
+            }
+            
+            // Fallback to default application icon if custom icon fails
+            if (hIcon == IntPtr.Zero)
+            {
+                hIcon = LoadIcon(IntPtr.Zero, new IntPtr(32512)); // IDI_APPLICATION
+            }
+            
             var data = new NOTIFYICONDATA
             {
                 cbSize = Marshal.SizeOf<NOTIFYICONDATA>(),
@@ -90,7 +119,7 @@ namespace ResizeMe.Services
                 uID = 1,
                 uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP,
                 uCallbackMessage = WM_USER_TRAY,
-                hIcon = LoadIcon(IntPtr.Zero, new IntPtr(32512)), // IDI_APPLICATION
+                hIcon = hIcon,
                 szTip = "ResizeMe"
             };
             _added = Shell_NotifyIcon(NIM_ADD, ref data);

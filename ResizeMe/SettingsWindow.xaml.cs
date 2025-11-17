@@ -62,6 +62,19 @@ namespace ResizeMe
                 var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
                 if (appWindow != null)
                 {
+                    // Set window icon
+                    try
+                    {
+                        var iconPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "Assets", "AppIcon.ico");
+                        if (System.IO.File.Exists(iconPath))
+                        {
+                            appWindow.SetIcon(iconPath);
+                        }
+                    }
+                    catch (Exception iconEx)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Failed to set settings window icon: {iconEx.Message}");
+                    }
                     // Default settings window size - increased width and height for hotkey card
                     appWindow.Resize(new Windows.Graphics.SizeInt32(700, 600));
                 }
