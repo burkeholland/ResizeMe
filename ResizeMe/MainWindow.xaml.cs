@@ -57,7 +57,12 @@ namespace ResizeMe
             _windowManager = new WindowManager();
             _windowResizer = new WindowResizer();
             AttachWindowLoadedHandler();
-            Loaded += async (_, _) => { await _presetManager.LoadAsync(); LoadPresetButtons(); };
+            Loaded += async (_, _) =>
+            {
+                await _presetManager.LoadAsync();
+                LoadPresetButtons();
+                DispatcherQueue.TryEnqueue(() => CheckFirstRunAndShowSettings());
+            };
             SetupWindowAppearance();
             AttachKeyDownHandler();
             Activated += OnWindowActivated;
@@ -128,6 +133,36 @@ namespace ResizeMe
                     WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_HIDE);
                 }
                 _isVisible = false;
+                // First minimize tray notification
+                try
+                {
+                    if (!Services.UserPreferences.FirstMinimizeNotificationShown)
+                    {
+                        EnsureWindowHandle();
+                        string hotkey = "Win+Shift+F12"; // Will be dynamic in later steps
+                        var message = $"ResizeMe is running in the system tray. Right-click the tray icon for Settings or Exit. Press {hotkey} to open the quick resize window.";
+                        WindowsApi.MessageBoxW(IntPtr.Zero, message, "ResizeMe Running", WindowsApi.MB_OK | WindowsApi.MB_TOPMOST);
+                        // Some hosts may reactivate the main window when the message box closes.
+                        // Ensure we remain hidden so first-run users stay in the tray immediately.
+                        try
+                        {
+                            if (_windowHandle != IntPtr.Zero)
+                            {
+                                WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_HIDE);
+                                _isVisible = false;
+                            }
+                        }
+                        catch (Exception hideEx)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"First minimize message re-hide error: {hideEx.Message}");
+                        }
+                        Services.UserPreferences.FirstMinimizeNotificationShown = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"First minimize notification error: {ex.Message}");
+                }
                 StatusText.Text = "Ready";
             }
             catch (Exception ex)
@@ -216,6 +251,22 @@ namespace ResizeMe
 
         private void HideWindow()
         {
+            if (!_isVisible)
+            {
+                try
+                {
+                    EnsureWindowHandle();
+                    if (_windowHandle != IntPtr.Zero)
+                    {
+                        WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_HIDE);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"HideWindow redundant hide error: {ex.Message}");
+                }
+                return;
+            }
             try
             {
                 AnimateHide();
@@ -608,6 +659,31 @@ namespace ResizeMe
             {
                 StatusText.Text = "Settings failed";
                 System.Diagnostics.Debug.WriteLine($"Settings open error: {ex.Message}");
+            }
+        }
+
+        private void CheckFirstRunAndShowSettings()
+        {
+            try
+            {
+                if (!Services.UserPreferences.FirstRunCompleted)
+                {
+                    var win = new SettingsWindow();
+                    win.PresetsChanged += OnSettingsPresetsChanged;
+                    win.Closed += async (_, _) =>
+                    {
+                        win.PresetsChanged -= OnSettingsPresetsChanged;
+                        Services.UserPreferences.FirstRunCompleted = true; // Mark completion
+                        await _presetManager.LoadAsync(true);
+                        DispatcherQueue.TryEnqueue(LoadPresetButtons);
+                    };
+                    win.Activate();
+                    StatusText.Text = "First-run settings";
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"First-run settings error: {ex.Message}");
             }
         }
 

@@ -323,5 +323,12 @@ namespace ResizeMe.Native
         {
             return (uint)Marshal.GetLastWin32Error();
         }
+
+        // Simple MessageBox wrapper for one-time notifications
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern int MessageBoxW(IntPtr hWnd, string lpText, string lpCaption, uint uType);
+
+        public const uint MB_OK = 0x00000000; // Using simple OK button
+        public const uint MB_TOPMOST = 0x00040000;
     }
 }
