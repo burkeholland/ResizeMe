@@ -39,28 +39,51 @@ Analyze the feature request against <complexity_rules> to determine step count:
 - **SIMPLE**: 1 consolidated step covering entire feature
 - **COMPLEX**: 2-5 steps, each a testable milestone
 
-ALL features get ONE PR folder:
+ALL features get ONE PR branch with plan.md at root:
 ```
-plans/{feature-name}/{1.0-feature-name}/
-├── plan.md          (single PR with 1 step [SIMPLE] or 2-5 steps [COMPLEX])
-└── README.md        (quick reference for branching)
+plans/{feature-name}/
+├── plan.md          (master plan for the entire PR with all steps outlined)
+├── README.md        (quick reference)
+├── 1-{step-name}/   (generated step implementation details, created by generate.prompt.md)
+│   ├── 1.1-{substep}/
+│   │   └── implementation.md
+│   └── 1.2-{substep}/
+│       └── implementation.md
+└── 2-{step-name}/   (if COMPLEX with multiple major steps)
+    └── step-specific files
 ```
 
 Example SIMPLE (1 step):
 ```
-plans/center-on-resize/1.0-center-on-resize/
-├── plan.md          # Step 1: Implement center-on-resize logic (consolidated)
-└── README.md
+plans/center-on-resize/
+├── plan.md          # Defines Step 1: Implement center-on-resize logic
+├── README.md
+└── 1-implement-center-on-resize/
+    └── 1.1-core-logic/
+        └── implementation.md
 ```
 
 Example COMPLEX (multiple steps):
 ```
-plans/ui-refresh-winui/1.0-ui-refresh-winui/
-├── plan.md          # Step 1: Setup WinUI3 packages
-                     # Step 2: Refactor MainWindow UI
-                     # Step 3: Refactor SettingsWindow UI
-                     # Step 4: Theme integration
-└── README.md
+plans/system-tray-integration/
+├── plan.md          # Defines Steps 1-4
+├── README.md
+├── 1-tray-menu-minimize/
+│   ├── 1.1-context-menu/
+│   │   └── implementation.md
+│   └── 1.2-minimize-behavior/
+│       └── implementation.md
+├── 2-settings-window-firstrun/
+│   ├── 2.1-first-run-detection/
+│   │   └── implementation.md
+│   └── 2.2-settings-on-click/
+│       └── implementation.md
+├── 3-firstrun-notification/
+│   └── 3.1-toast-notification/
+│       └── implementation.md
+└── 4-hotkey-customization/
+    └── 4.1-custom-hotkey-ui/
+        └── implementation.md
 ```
 
 ## Step 3: Collect User Feedback
@@ -74,7 +97,11 @@ plans/ui-refresh-winui/1.0-ui-refresh-winui/
 
 ## Step 4: Final Plan Output
 
-Generate final plan documents using <output_templates> and present as the last output before returning control to user. This is the definitive artifact the user takes away.
+Generate final plan documents and save to:
+- **plan.md** at root of feature folder: `plans/{feature-name}/plan.md`
+- **README.md** at root of feature folder: `plans/{feature-name}/README.md`
+
+These files outline all steps and serve as the master reference. Step implementation files are generated later by generate.prompt.md into numbered subfolders (1-step-name, 2-step-name, etc.).
 
 </workflow>
 
@@ -110,7 +137,7 @@ Generate final plan documents using <output_templates> and present as the last o
 
 ## Single PR Template (for both SIMPLE and COMPLEX)
 
-**File:** `plans/{feature-name}/{1.0-feature-name}/plan.md`
+**File:** `plans/{feature-name}/plan.md`
 
 ```markdown
 # PR 1.0: {Feature Name}
@@ -129,12 +156,14 @@ Generate final plan documents using <output_templates> and present as the last o
 ## Implementation Steps
 
 ### Step 1: {Step Name} [SIMPLE features have only this step]
+**Folder:** `1-{step-name}/`
 **Files:** {List affected files: Service/HotKeyManager.cs, Models/PresetSize.cs, etc.}
 [NEEDS CLARIFICATION: {If files uncertain pending user input}]
 **What:** {1-2 sentences describing the change}
 **Testing:** {How to verify this step works}
 
 ### Step 2: {Step Name} [COMPLEX features continue]
+**Folder:** `2-{step-name}/`
 **Files:** {affected files}
 **What:** {description}
 **Testing:** {verification method}
@@ -151,7 +180,7 @@ Generate final plan documents using <output_templates> and present as the last o
 `{type}({scope}): {description}`
 ```
 
-**File:** `plans/{feature-name}/{1.0-feature-name}/README.md`
+**File:** `plans/{feature-name}/README.md`
 
 ```markdown
 # PR 1.0: {Feature Name}
@@ -160,7 +189,15 @@ Generate final plan documents using <output_templates> and present as the last o
 **Steps:** {1 step (SIMPLE) or N steps (COMPLEX)}
 [NEEDS CLARIFICATION: {Note any needed clarifications here}]
 
-Follow steps in `plan.md`. Each step includes testing instructions.
+## Folder Structure
+
+Each step has a corresponding folder with detailed implementation guides:
+- `1-{step-name}/` — Step 1 implementation files
+- `2-{step-name}/` — Step 2 implementation files (if applicable)
+- etc.
+
+Follow the master `plan.md` for step sequence, then work through each step's implementation folder.
+
 After completion, open PR against `main`.
 ```
 
