@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using ResizeMe.Models;
 using ResizeMe.Services;
+using Windows.Storage;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -28,6 +29,16 @@ namespace ResizeMe
             // first activation shows the correctly-sized window without a flash.
             SetWindowSize();
             _ = InitializeAsync();
+            // Expose a test-only button for frequently resetting local preferences while debugging
+            try
+            {
+#if DEBUG
+                ResetPrefsButton.Visibility = Visibility.Visible;
+#else
+                ResetPrefsButton.Visibility = Visibility.Collapsed;
+#endif
+            }
+            catch { }
         }
 
         private async Task InitializeAsync()
@@ -127,6 +138,23 @@ namespace ResizeMe
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+
+        private void ResetPrefsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Remove only the first-minimize notification flag — keep other preferences intact by default
+                ApplicationData.Current.LocalSettings.Values.Remove("FirstMinimizeNotificationShown");
+                // Optionally clear the first-run flag if you want the settings window to reappear on next start
+                // ApplicationData.Current.LocalSettings.Values.Remove("FirstRunCompleted");
+                StatusText.Text = "First minimize notification reset";
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "Reset failed";
+                System.Diagnostics.Debug.WriteLine($"Reset prefs error: {ex.Message}");
+            }
+        }
 
         private void NotifyPresetsChanged()
         {

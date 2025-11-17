@@ -188,6 +188,14 @@
             Style="{StaticResource PrimaryActionButtonStyle}"
             Padding="20,12"
             CornerRadius="6" />
+            <Button x:Name="ResetPrefsButton"
+              Content="Reset Prefs (DEBUG)"
+              Click="ResetPrefsButton_Click"
+              Style="{StaticResource PrimaryActionButtonStyle}"
+              Padding="12,10"
+              CornerRadius="6"
+              Visibility="Collapsed"
+              Margin="8,0,0,0" />
         </StackPanel>
       </StackPanel>
 
