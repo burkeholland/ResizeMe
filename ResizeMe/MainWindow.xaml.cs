@@ -41,6 +41,12 @@ namespace ResizeMe
         private bool _centerOnResize;
         private TrayIconManager? _trayIcon;
 
+        // Window message constants for system commands & tray interaction
+        private const int WM_SYSCOMMAND = 0x0112;
+        private const int SC_CLOSE = 0xF060;
+        private const int WM_COMMAND = 0x0111;
+        private const int WM_RBUTTONUP = 0x0205; // Right mouse button up
+
         private WinApiSubClass.SubClassProc? _subclassProc;
         private readonly IntPtr _subClassId = new(1001);
         private DateTime _lastToggle = DateTime.MinValue;
@@ -163,6 +169,10 @@ namespace ResizeMe
                 if (_trayIcon.Initialize())
                 {
                     Debug.WriteLine("Tray icon initialized");
+                    // Hook tray events to main window actions
+                    _trayIcon.ShowRequested += (_, _) => DispatcherQueue.TryEnqueue(ToggleVisibility);
+                    _trayIcon.SettingsRequested += (_, _) => DispatcherQueue.TryEnqueue(OpenSettingsWindow);
+                    _trayIcon.ExitRequested += (_, _) => DispatcherQueue.TryEnqueue(PerformExit);
                 }
             }
             HideWindow();
@@ -550,11 +560,36 @@ namespace ResizeMe
 
         private IntPtr WndProcSubClass(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, IntPtr uIdSubclass, IntPtr dwRefData)
         {
+            // Intercept system close (titlebar 'X') and hide to tray instead of closing
+            if (uMsg == WM_SYSCOMMAND && wParam.ToInt32() == SC_CLOSE)
+            {
+                HideWindow();
+                return IntPtr.Zero;
+            }
+
+            // Tray icon callback handling: respond to right-click menu and left-click toggle
+            if (_trayIcon != null && uMsg == (uint)_trayIcon.TrayCallbackMessage)
+            {
+                int lParamVal = lParam.ToInt32();
+                // Right button up shows context menu
+                if (lParamVal == WM_RBUTTONUP)
+                {
+                    _trayIcon.ShowContextMenu();
+                    return IntPtr.Zero;
+                }
+                // WM_LBUTTONUP (0x0202) toggles show/hide
+                if (lParamVal == 0x0202)
+                {
+                    ToggleVisibility();
+                    return IntPtr.Zero;
+                }
+            }
+            // Preserve hotkey processing
             if (_hotKeyManager?.ProcessMessage(uMsg, wParam, lParam) == true) return IntPtr.Zero;
             return WinApiSubClass.DefSubclassProc(hWnd, uMsg, wParam, lParam);
         }
 
-        private void SettingsButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        private void OpenSettingsWindow()
         {
             try
             {
@@ -574,6 +609,26 @@ namespace ResizeMe
                 StatusText.Text = "Settings failed";
                 System.Diagnostics.Debug.WriteLine($"Settings open error: {ex.Message}");
             }
+        }
+
+        private void PerformExit()
+        {
+            try
+            {
+                _trayIcon?.Dispose();
+                _hotKeyManager?.Dispose();
+                Close(); // Close the window to exit
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Exit error: {ex.Message}");
+            }
+        }
+
+        private void SettingsButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            // Reuse the single entry point to open settings so behavior is consistent
+            OpenSettingsWindow();
         }
 
         private async void OnSettingsPresetsChanged(object? sender, EventArgs e)

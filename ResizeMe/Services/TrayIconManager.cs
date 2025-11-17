@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using System.Diagnostics;
 using ResizeMe.Native;
 
 namespace ResizeMe.Services
@@ -20,6 +21,36 @@ namespace ResizeMe.Services
         private const int NIM_ADD = 0x00000000;
         private const int NIM_DELETE = 0x00000002;
         private const int NIM_MODIFY = 0x00000001;
+
+        // Menu item command IDs
+        private const int CMD_SHOW = 10001;
+        private const int CMD_SETTINGS = 10002;
+        private const int CMD_EXIT = 10003;
+
+        // TrackPopupMenu flags
+        private const uint TPM_RIGHTBUTTON = 0x0002;
+        private const uint TPM_RETURNCMD = 0x0100;
+
+        // Win32 P/Invoke helpers for popup menu
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr CreatePopupMenu();
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern bool DestroyMenu(IntPtr hMenu);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern bool AppendMenu(IntPtr hMenu, uint uFlags, uint uIDNewItem, string lpNewItem);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern uint TrackPopupMenuEx(IntPtr hMenu, uint uFlags, int x, int y, IntPtr hWnd, IntPtr lpTpm);
+
+        [DllImport("user32.dll")] private static extern bool GetCursorPos(out POINT lpPoint);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT { public int X; public int Y; }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         private struct NOTIFYICONDATA
@@ -65,6 +96,40 @@ namespace ResizeMe.Services
             _added = Shell_NotifyIcon(NIM_ADD, ref data);
             return _added;
         }
+
+        /// <summary>
+        /// Shows the context menu at current cursor position and fires selection events.
+        /// </summary>
+        public void ShowContextMenu()
+        {
+            if (_hWnd == IntPtr.Zero) return;
+            try
+            {
+                // Ensure window is foreground so menu dismiss behaves correctly.
+                SetForegroundWindow(_hWnd);
+                IntPtr hMenu = CreatePopupMenu();
+                if (hMenu == IntPtr.Zero) return;
+
+                AppendMenu(hMenu, 0, CMD_SHOW, "Show/Hide");
+                AppendMenu(hMenu, 0, CMD_SETTINGS, "Settings...");
+                AppendMenu(hMenu, 0, CMD_EXIT, "Exit");
+
+                GetCursorPos(out var pt);
+                uint cmd = TrackPopupMenuEx(hMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, pt.X, pt.Y, _hWnd, IntPtr.Zero);
+                DestroyMenu(hMenu);
+
+                if (cmd == CMD_SHOW) ShowRequested?.Invoke(this, EventArgs.Empty);
+                else if (cmd == CMD_SETTINGS) SettingsRequested?.Invoke(this, EventArgs.Empty);
+                else if (cmd == CMD_EXIT) ExitRequested?.Invoke(this, EventArgs.Empty);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"TrayIconManager: Context menu error {ex.Message}");
+            }
+        }
+
+        /// <summary>Tray callback message identifier for external WndProc processing.</summary>
+        public int TrayCallbackMessage => WM_USER_TRAY;
 
         public void Dispose()
         {

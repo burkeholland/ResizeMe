@@ -12,7 +12,6 @@ namespace ResizeMe
 {
     public sealed partial class SettingsWindow : Window
     {
-        public event RoutedEventHandler? Loaded;
         private readonly PresetManager _manager = new();
         private readonly ObservableCollection<PresetSize> _view = new();
 
@@ -23,19 +22,18 @@ namespace ResizeMe
             InitializeComponent();
             Title = "ResizeMe Settings";
             PresetList.ItemsSource = _view;
-            Loaded += OnLoaded;
             WidthInput.KeyUp += OnDimensionKeyUp;
             HeightInput.KeyUp += OnDimensionKeyUp;
-            DispatcherQueue.TryEnqueue(() => Loaded?.Invoke(this, new RoutedEventArgs()));
+            // Set the initial window size immediately after creation so the
+            // first activation shows the correctly-sized window without a flash.
+            SetWindowSize();
+            _ = InitializeAsync();
         }
 
-        private async void OnLoaded(object sender, RoutedEventArgs e)
+        private async Task InitializeAsync()
         {
             await _manager.LoadAsync();
             RefreshView();
-            
-            // Set window size after everything is loaded
-            SetWindowSize();
         }
 
         private void SetWindowSize()
@@ -49,7 +47,8 @@ namespace ResizeMe
                 var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
                 if (appWindow != null)
                 {
-                    appWindow.Resize(new Windows.Graphics.SizeInt32(620, 520));
+                    // Default settings window size
+                    appWindow.Resize(new Windows.Graphics.SizeInt32(625, 550));
                 }
             }
             catch (System.ArgumentException)
