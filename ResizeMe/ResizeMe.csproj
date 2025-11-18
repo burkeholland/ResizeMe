@@ -11,6 +11,15 @@
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
+    
+    <!-- Store Package Configuration -->
+    <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
+    <AppxAutoIncrementPackageRevision>true</AppxAutoIncrementPackageRevision>
+    <AppxSymbolPackageEnabled>false</AppxSymbolPackageEnabled>
+    <GenerateTestArtifacts>false</GenerateTestArtifacts>
+    <AppxBundle>Never</AppxBundle>
+    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+    <PackageCertificateThumbprint />
   </PropertyGroup>
 
   <ItemGroup>
@@ -57,5 +66,40 @@
     <PublishReadyToRun Condition="'$(Configuration)' == 'Release' and '$(RuntimeIdentifier)' == ''">False</PublishReadyToRun>
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' == 'Release'">False</PublishTrimmed>
+    <!-- Store Package Optimization -->
+    <PublishSingleFile>false</PublishSingleFile>
+    <SelfContained>false</SelfContained>
+    <RuntimeIdentifier />
   </PropertyGroup>
+
+  <!-- Store Release Configuration -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <Optimize>true</Optimize>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- Store Package Validation -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <AppxPackageValidationEnabled>true</AppxPackageValidationEnabled>
+    <AppxValidateStore>true</AppxValidateStore>
+  </PropertyGroup>
+
+  <!-- Store Asset Validation -->
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <AppxManifestImageValidation Include="Assets\*.png" />
+    <AppxManifestImageValidation Include="Assets\*.jpg" />
+  </ItemGroup>
+
+  <!-- Store Package Creation Target -->
+  <Target Name="CreateStorePackage" Condition="'$(Configuration)' == 'Release'">
+    <Message Text="Building store-compatible MSIX package..." Importance="high" />
+    <MSBuild Projects="$(MSBuildProjectFile)"
+             Properties="Configuration=Release;Platform=$(Platform);AppxPackageDir=$(OutputPath)AppPackages\;AppxPackageSigningEnabled=false;UapAppxPackageBuildMode=StoreUpload"
+             Targets="Build" />
+  </Target>
 </Project>
