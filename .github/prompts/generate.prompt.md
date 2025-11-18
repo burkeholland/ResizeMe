@@ -120,7 +120,7 @@ For the entire project described in the master plan, research and gather:
 Return a comprehensive research package covering the entire project context.
 </research_task>
 
-<batch_workflow>>
+<batch_workflow>
 1. Use the research returned by the <research_task> subagent to inform your generation.
 2. Generate implementation files using the template below
 3. Ensure each substep file:
@@ -135,6 +135,12 @@ Return a comprehensive research package covering the entire project context.
    - Path: `plans/{feature-name}/{step-number}-{step-name}/{step-number}.{substep-number}-{substep-name}.md`
    - Example: `plans/system-tray-integration/1-tray-menu-minimize/1.1-context-menu.md`
    - DO NOT output to chat; only report progress when complete
+
+5. **NO automatic commits or branch creation:**
+   - Do not commit changes automatically
+   - Do not create feature branches
+   - Leave all git operations to the user
+   - User will handle branch creation and commits as needed
 </batch_workflow>
 
 <plan_template>
