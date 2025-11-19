@@ -129,7 +129,7 @@ namespace ResizeMe.Services
                     }
                 }
                 catch { }
-                return "WIN+SHIFT"; // default
+                return "CTRL+WIN"; // default
             }
             set
             {
@@ -158,7 +158,7 @@ namespace ResizeMe.Services
                     }
                 }
                 catch { }
-                return "F12"; // default
+                return "R"; // default
             }
             set
             {

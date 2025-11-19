@@ -57,7 +57,7 @@ namespace ResizeMe.Services
         }
 
         /// <summary>
-        /// Registers the global hotkey (Win+Shift+F12)
+        /// Registers the global hotkey (Ctrl+Win+R)
         /// </summary>
         public bool RegisterHotKey()
         {

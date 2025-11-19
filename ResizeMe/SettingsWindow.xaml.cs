@@ -250,7 +250,7 @@ namespace ResizeMe
                     return;
                 }
 
-                var mods = string.IsNullOrWhiteSpace(_capturedModifiers) ? "WIN+SHIFT" : _capturedModifiers; // enforce at least one
+                var mods = string.IsNullOrWhiteSpace(_capturedModifiers) ? "CTRL+WIN" : _capturedModifiers; // enforce at least one
                 if (Services.HotKeyManager.IsReserved(mods, _capturedKey))
                 {
                     HotkeyErrorText.Text = "This hotkey is reserved by Windows.";
@@ -338,8 +338,8 @@ namespace ResizeMe
 
         private void ResetHotkeyButton_Click(object sender, RoutedEventArgs e)
         {
-            UserPreferences.HotKeyModifiers = "WIN+SHIFT";
-            UserPreferences.HotKeyCode = "F12";
+            UserPreferences.HotKeyModifiers = "CTRL+WIN";
+            UserPreferences.HotKeyCode = "R";
             TryReRegisterFromMainWindow();
             LoadHotkeyDisplay();
             // (Status label removed) Reset to default acknowledged.

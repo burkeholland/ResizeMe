@@ -152,7 +152,7 @@ namespace ResizeMe
                     if (!Services.UserPreferences.FirstMinimizeNotificationShown)
                     {
                         EnsureWindowHandle();
-                        string hotkey = "Win+Shift+F12"; // Will be dynamic in later steps
+                        string hotkey = "Ctrl+Win+R"; // Will be dynamic in later steps
                         var message = $"ResizeMe is running in the system tray. Right-click the tray icon for Settings or Exit. Press {hotkey} to open the quick resize window.";
                         WindowsApi.MessageBoxW(IntPtr.Zero, message, "ResizeMe Running", WindowsApi.MB_OK | WindowsApi.MB_TOPMOST);
                         // Some hosts may reactivate the main window when the message box closes.
