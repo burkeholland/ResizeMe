@@ -1,0 +1,61 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x64, x86, arm64]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore ResizeMe/ResizeMe.csproj
+
+    - name: Build and Publish (${{ matrix.arch }})
+      run: |
+        dotnet publish ResizeMe/ResizeMe.csproj -c Release -f net8.0-windows10.0.19041.0 -r win-${{ matrix.arch }} --self-contained true -p:PublishSingleFile=false -p:PublishReadyToRun=true -o build/${{ matrix.arch }}
+
+    - name: Create Archive
+      run: |
+        Compress-Archive -Path build/${{ matrix.arch }}/* -DestinationPath ResizeMe-${{ matrix.arch }}.zip
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ResizeMe-${{ matrix.arch }}
+        path: ResizeMe-${{ matrix.arch }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Download All Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Display structure of downloaded files
+      run: ls -R artifacts
+
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/ResizeMe-x64/ResizeMe-x64.zip
+          artifacts/ResizeMe-x86/ResizeMe-x86.zip
+          artifacts/ResizeMe-arm64/ResizeMe-arm64.zip
