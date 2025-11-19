@@ -26,7 +26,7 @@ jobs:
 
     - name: Build and Publish (${{ matrix.arch }})
       run: |
-        dotnet publish ResizeMe/ResizeMe.csproj -c Release -f net8.0-windows10.0.19041.0 -r win-${{ matrix.arch }} --self-contained true -p:PublishSingleFile=false -p:PublishReadyToRun=true -o build/${{ matrix.arch }}
+        dotnet publish ResizeMe/ResizeMe.csproj -c Release -f net8.0-windows10.0.19041.0 -r win-${{ matrix.arch }} --self-contained true -p:PublishSingleFile=false -p:PublishReadyToRun=false -p:PublishTrimmed=true -o build/${{ matrix.arch }}
 
     - name: Create Archive
       run: |
