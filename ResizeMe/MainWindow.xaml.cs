@@ -21,24 +21,34 @@ namespace ResizeMe
 {
     /// <summary>
     /// Floating context menu window providing preset resize buttons with toggle behavior.
+    /// Responsibilities: rendering presets, handling show/hide lifecycle, delegating window
+    /// enumeration/resizing to services, and wiring up initialization, hotkeys, and tray.
+    /// Keeps UI logic minimal by delegating domain concerns to services/helpers.
     /// </summary>
     public sealed partial class MainWindow : Window
     {
         public event RoutedEventHandler? Loaded;
+        /// <summary>Manager handling global hotkey registration and processing for the app window.</summary>
         private HotKeyManager? _hotKeyManager;
+        /// <summary>Service enumerating windows and determining resizable windows.</summary>
         private WindowManager? _windowManager;
+        /// <summary>Service that performs resize operations on external windows.</summary>
         private WindowResizer? _windowResizer;
         private readonly PresetManager _presetManager = new();
+        private readonly PresetPresenter _presetPresenter;
+        private StatusManager? _statusManager;
+        /// <summary>Native handle for the app's Win32 window.</summary>
         private IntPtr _windowHandle = IntPtr.Zero;
+        /// <summary>WinUI AppWindow wrapper for the main window (used for icon/size).</summary>
         private AppWindow? _appWindow;
+        /// <summary>Indicates whether the native window subclass for message interception is registered.</summary>
         private bool _isSubclassRegistered;
-        private bool _isVisible;
-        private bool _isAlwaysOnTop;
+        private readonly WindowStateManager _stateManager = new();
+        /// <summary>Currently selected external window to operate on.</summary>
         private WindowInfo? _selectedWindow;
+        /// <summary>Cache of available resizable windows discovered on refresh.</summary>
         private List<WindowInfo> _availableWindows = new();
-        private string? _activePresetTag;
-        private int _presetIndex = -1;
-        private bool _centerOnResize;
+        // active preset, preset index and center-on-resize are now managed by _stateManager
         private TrayIconManager? _trayIcon;
 
         // Window message constants for system commands & tray interaction
@@ -47,34 +57,70 @@ namespace ResizeMe
         private const int WM_COMMAND = 0x0111;
         private const int WM_RBUTTONUP = 0x0205; // Right mouse button up
 
+        /// <summary>Delegate for the Win32 window subclass procedure.</summary>
         private WinApiSubClass.SubClassProc? _subclassProc;
+        private WindowMessageHandler? _messageHandler;
+        /// <summary>Application-defined ID used when registering the window subclass.</summary>
         private readonly IntPtr _subClassId = new(1001);
+        /// <summary>Throttle toggles to avoid rapid accidental opens/closes.</summary>
         private DateTime _lastToggle = DateTime.MinValue;
+
+        private class WindowMessageHandler
+        {
+            private readonly MainWindow _owner;
+            public WindowMessageHandler(MainWindow owner) { _owner = owner; }
+            public IntPtr Handle(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, IntPtr uIdSubclass, IntPtr dwRefData)
+            {
+                if (uMsg == WM_SYSCOMMAND && wParam.ToInt32() == SC_CLOSE)
+                {
+                    _owner.HideWindow();
+                    return IntPtr.Zero;
+                }
+                if (_owner._trayIcon != null && uMsg == (uint)_owner._trayIcon.TrayCallbackMessage)
+                {
+                    int lParamVal = lParam.ToInt32();
+                    if (lParamVal == WM_RBUTTONUP)
+                    {
+                        _owner._trayIcon.ShowContextMenu();
+                        return IntPtr.Zero;
+                    }
+                    if (lParamVal == 0x0202)
+                    {
+                        _owner.ToggleVisibility();
+                        return IntPtr.Zero;
+                    }
+                }
+                if (_owner._hotKeyManager?.ProcessMessage(uMsg, wParam, lParam) == true) return IntPtr.Zero;
+                return WinApiSubClass.DefSubclassProc(hWnd, uMsg, wParam, lParam);
+            }
+        }
 
         public MainWindow()
         {
             InitializeComponent();
+            _presetPresenter = new PresetPresenter(_presetManager);
             _windowManager = new WindowManager();
             _windowResizer = new WindowResizer();
             AttachWindowLoadedHandler();
             Loaded += async (_, _) =>
             {
                 await _presetManager.LoadAsync();
-                LoadPresetButtons();
+                    LoadPresetButtons();
                 DispatcherQueue.TryEnqueue(() => CheckFirstRunAndShowSettings());
             };
-            SetupWindowAppearance();
+            UIInitializer.Initialize(this);
             AttachKeyDownHandler();
             Activated += OnWindowActivated;
             Closed += Window_Closed;
 
-            // Load persisted "center on resize" preference
+            // Load persisted "center on resize" preference into state manager
             try
             {
-                _centerOnResize = ResizeMe.Services.UserPreferences.CenterOnResize;
+                var persisted = ResizeMe.Services.UserPreferences.CenterOnResize;
+                _stateManager.SetCenterOnResize(persisted);
                 if (CenterOnResizeToggle != null)
                 {
-                    CenterOnResizeToggle.IsOn = _centerOnResize;
+                    CenterOnResizeToggle.IsOn = persisted;
                 }
             }
             catch (Exception ex)
@@ -145,7 +191,7 @@ namespace ResizeMe
                     _appWindow?.Resize(new SizeInt32(320, 540));
                     WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_HIDE);
                 }
-                _isVisible = false;
+                _stateManager.Hide();
                 // First minimize tray notification
                 try
                 {
@@ -159,11 +205,11 @@ namespace ResizeMe
                         // Ensure we remain hidden so first-run users stay in the tray immediately.
                         try
                         {
-                            if (_windowHandle != IntPtr.Zero)
-                            {
-                                WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_HIDE);
-                                _isVisible = false;
-                            }
+                                if (_windowHandle != IntPtr.Zero)
+                                {
+                                    WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_HIDE);
+                                    _stateManager.Hide();
+                                }
                         }
                         catch (Exception hideEx)
                         {
@@ -176,13 +222,32 @@ namespace ResizeMe
                 {
                     System.Diagnostics.Debug.WriteLine($"First minimize notification error: {ex.Message}");
                 }
-                StatusText.Text = "Ready";
+                _statusManager?.SetStatus("Ready", TimeSpan.Zero);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"SetupWindowAppearance error: {ex.Message}");
             }
         }
+
+    internal static class UIInitializer
+    {
+        public static void Initialize(MainWindow window)
+        {
+            try
+            {
+                window.SetupWindowAppearance();
+                // Ensure hotkeys and tray icon are initialized when the app becomes activated
+                window.EnsureHotKeyRegistration();
+                // Run first-run check after appearance and hotkey/tray setup
+                try { window.CheckFirstRunAndShowSettings(); } catch { }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"UIInitializer: Initialization error: {ex.Message}");
+            }
+        }
+    }
 
         private void EnsureWindowHandle()
         {
@@ -205,15 +270,16 @@ namespace ResizeMe
             if (success)
             {
                 // Show the configured hotkey in status
-                StatusText.Text = $"Ready ({Services.UserPreferences.HotKeyModifiers}+{Services.UserPreferences.HotKeyCode})";
+                _statusManager?.SetStatus($"Ready ({Services.UserPreferences.HotKeyModifiers}+{Services.UserPreferences.HotKeyCode})", TimeSpan.Zero);
             }
             else
             {
-                StatusText.Text = "Hotkey failed";
+                _statusManager?.SetStatus("Hotkey failed", TimeSpan.Zero);
             }
             if (!_isSubclassRegistered)
             {
-                _subclassProc = WndProcSubClass;
+                _messageHandler = new WindowMessageHandler(this);
+                _subclassProc = _messageHandler.Handle;
                 if (WinApiSubClass.SetWindowSubclass(_windowHandle, _subclassProc, _subClassId, IntPtr.Zero))
                 {
                     _isSubclassRegistered = true;
@@ -240,15 +306,27 @@ namespace ResizeMe
             if ((DateTime.UtcNow - _lastToggle).TotalMilliseconds < 150) return;
             _lastToggle = DateTime.UtcNow;
 
-            if (_isVisible) HideWindow(); else ShowWindow();
+            if (_stateManager.IsVisible) HideWindow(); else _ = ShowWindowAsync();
         }
 
-        private void ShowWindow()
+        private async System.Threading.Tasks.Task ShowWindowAsync()
         {
             try
             {
                 EnsureWindowHandle();
                 RefreshWindowList();
+                // Ensure presets are loaded before rendering UI controls so the first show isn't blank
+                try
+                {
+                    if (!_presetManager.IsLoaded)
+                    {
+                        await _presetManager.LoadAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"MainWindow: Preset load failed during ShowWindow: {ex.Message}");
+                }
                 var anchorWindow = _windowManager?.GetActiveResizableWindow() ?? _availableWindows.FirstOrDefault();
                 if (anchorWindow != null) WindowPositionHelper.CenterOnWindow(this, anchorWindow); else WindowPositionHelper.CenterOnScreen(this);
                 if (_windowHandle != IntPtr.Zero)
@@ -258,21 +336,22 @@ namespace ResizeMe
                     ApplyAlwaysOnTop();
                 }
                 Activate();
-                _isVisible = true;
-                StatusText.Text = "Menu shown";
+                _stateManager.Show();
+                _statusManager?.SetStatus("Menu shown", TimeSpan.Zero);
                 LoadPresetButtons();
-                AnimateShow();
+                if (StatusText != null) _statusManager = new StatusManager(StatusText);
+                // Do not animate show — display immediately for responsiveness.
             }
             catch (Exception ex)
             {
-                StatusText.Text = "Show error";
+                _statusManager?.SetStatus("Show error", TimeSpan.Zero);
                 Debug.WriteLine($"ShowWindow error: {ex.Message}");
             }
         }
 
         private void HideWindow()
         {
-            if (!_isVisible)
+            if (!_stateManager.IsVisible)
             {
                 try
                 {
@@ -290,12 +369,11 @@ namespace ResizeMe
             }
             try
             {
-                AnimateHide();
+                // Hide immediately — no animation for quick responsiveness.
                 EnsureWindowHandle();
                 if (_windowHandle != IntPtr.Zero) WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_HIDE);
-                _isVisible = false;
-                _presetIndex = -1;
-                StatusText.Text = "Hidden";
+                _stateManager.Hide();
+                _statusManager?.SetStatus("Hidden", TimeSpan.Zero);
             }
             catch (Exception ex)
             {
@@ -345,91 +423,18 @@ namespace ResizeMe
                 }
             }
 
-            foreach (var preset in _presetManager.Presets)
-            {
-                // No icon glyphs in minimal floating UI — we only display name + dimensions
-
-                // Match the compact settings list item template: small icon + name + dimensions
-                var itemBorder = new Border
-                {
-                    CornerRadius = new CornerRadius(4),
-                    Padding = new Thickness(8, 6, 8, 6),
-                    Margin = new Thickness(0, 1, 0, 1)
-                };
-
-                var itemGrid = new Grid();
-                itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-                var itemIcon = new FontIcon
-                {
-                    FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe Fluent Icons"),
-                    Glyph = "\xE7C4",
-                    FontSize = 14,
-                    Opacity = 0.9,
-                    // Use settings view accent color when available
-                    Foreground = resources?.TryGetValue("AccentTextFillColorSecondaryBrush", out var accentBrush) == true ? accentBrush as Microsoft.UI.Xaml.Media.Brush : null,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, 0, 8, 0)
-                };
-                Grid.SetColumn(itemIcon, 0);
-
-                var itemTextPanel = new StackPanel { Orientation = Orientation.Vertical, VerticalAlignment = VerticalAlignment.Center };
-
-                // Reuse app styles if available (PresetHeaderTextStyle and PresetSubTextStyle)
-                Style headerStyle = null;
-                Style subTextStyle = null;
-                // reuse 'resources' defined above for styles and brushes
-                if (resources != null)
-                {
-                    if (resources.TryGetValue("PresetHeaderTextStyle", out var hs) && hs is Style) headerStyle = (Style)hs;
-                    if (resources.TryGetValue("PresetSubTextStyle", out var ss) && ss is Style) subTextStyle = (Style)ss;
-                }
-
-                var nameText = new TextBlock { Text = preset.Name, FontWeight = FontWeights.SemiBold };
-                if (headerStyle != null) nameText.Style = headerStyle; else nameText.FontSize = 13;
-
-                var sizeText = new TextBlock { Text = $"{preset.Width} x {preset.Height}", Opacity = 0.8 };
-                if (subTextStyle != null) sizeText.Style = subTextStyle; else sizeText.FontSize = 11;
-
-                itemTextPanel.Children.Add(nameText);
-                itemTextPanel.Children.Add(sizeText);
-                Grid.SetColumn(itemTextPanel, 1);
-
-                itemGrid.Children.Add(itemIcon);
-                itemGrid.Children.Add(itemTextPanel);
-                // Match settings item background if available
-                if (resources?.TryGetValue("ControlFillColorDefaultBrush", out var bg) == true && bg is Microsoft.UI.Xaml.Media.Brush borderBg) itemBorder.Background = borderBg;
-                itemBorder.Child = itemGrid;
-
-                var btn = new Button
-                {
-                    Content = itemBorder,
-                    Tag = $"{preset.Width}x{preset.Height}",
-                    Margin = new Thickness(0,0,0,0)
-                };
-                if (baseStyle != null)
-                {
-                    btn.Style = baseStyle;
-                }
-                btn.Height = double.NaN;
-                btn.MinHeight = 44;
-                // remove extra button padding — inner border already provides the desired spacing
-                btn.Padding = new Thickness(0);
-                btn.HorizontalContentAlignment = HorizontalAlignment.Left;
-                btn.VerticalContentAlignment = VerticalAlignment.Center;
-                btn.Click += PresetButton_Click;
-                DynamicPresetsPanel.Children.Add(btn);
-            }
+            _presetPresenter.RenderPresets(DynamicPresetsPanel, App.Current?.Resources, PresetButton_Click);
+            
             if (!_presetManager.Presets.Any())
             {
                 PresetHint.Text = "No presets defined. Add in Settings.";
-                _presetIndex = -1;
+                _stateManager.ResetPresetIndex();
             }
             else
             {
                 PresetHint.Text = "Customize in Settings";
-                FocusPreset(0);
+                var idx = _presetPresenter.FocusPreset(DynamicPresetsPanel, 0);
+                _stateManager.SetPresetIndex(idx);
             }
         }
 
@@ -440,7 +445,7 @@ namespace ResizeMe
             if (!buttons.Any()) return;
             if (index < 0) index = 0;
             if (index >= buttons.Count) index = buttons.Count - 1;
-            _presetIndex = index;
+            _stateManager.SetPresetIndex(index);
             var target = buttons[index];
             target.Focus(FocusState.Programmatic);
         }
@@ -452,21 +457,21 @@ namespace ResizeMe
                 var targetWindow = _selectedWindow ?? _availableWindows.FirstOrDefault();
                 if (targetWindow == null)
                 {
-                    StatusText.Text = "No window";
+                    _statusManager?.SetStatus("No window", TimeSpan.Zero);
                     return;
                 }
                 if (_windowResizer == null)
                 {
-                    StatusText.Text = "No resizer";
+                    _statusManager?.SetStatus("No resizer", TimeSpan.Zero);
                     return;
                 }
-                StatusText.Text = $"Resizing {sizeTag}...";
+                _statusManager?.SetStatus($"Resizing {sizeTag}...", TimeSpan.FromSeconds(5));
                 var result = _windowResizer.ResizeWindow(targetWindow, width, height);
                 if (result.Success)
                 {
-                    StatusText.Text = $"✅ {sizeTag}";
+                    _statusManager?.SetStatus($"✅ {sizeTag}", TimeSpan.FromSeconds(2));
                     // If user enabled center-on-resize, center the external window on its monitor
-                    if (_centerOnResize)
+                    if (_stateManager.CenterOnResize)
                     {
                         try
                         {
@@ -479,25 +484,25 @@ namespace ResizeMe
                     }
 
                     _windowResizer.ActivateWindow(targetWindow);
-                    SetActivePreset(sizeTag);
+                        SetActivePreset(sizeTag);
                     await Task.Delay(600);
                     HideWindow();
                 }
                 else
                 {
-                    StatusText.Text = $"❌ {result.ErrorMessage}";
+                    _statusManager?.SetStatus($"❌ {result.ErrorMessage}", TimeSpan.FromSeconds(3));
                 }
             }
             catch (Exception ex)
             {
-                StatusText.Text = "Resize failed";
+                _statusManager?.SetStatus("Resize failed", TimeSpan.FromSeconds(3));
                 Debug.WriteLine($"ResizeSelectedWindow error: {ex.Message}");
             }
         }
 
         private void SetActivePreset(string sizeTag)
         {
-            _activePresetTag = sizeTag;
+            _stateManager.SetActivePreset(sizeTag);
 
             Style? activeStyle = null;
             Style? baseStyle = null;
@@ -527,7 +532,7 @@ namespace ResizeMe
             var parts = sizeTag.Split('x');
             if (parts.Length != 2 || !int.TryParse(parts[0], out int width) || !int.TryParse(parts[1], out int height))
             {
-                StatusText.Text = "Invalid size";
+                _statusManager?.SetStatus("Invalid size", TimeSpan.FromSeconds(3));
                 return;
             }
             _ = ResizeSelectedWindow(width, height, sizeTag);
@@ -535,7 +540,7 @@ namespace ResizeMe
 
         private void OnKeyDown(object sender, KeyRoutedEventArgs e)
         {
-            if (!_isVisible) return;
+            if (!_stateManager.IsVisible) return;
             var buttons = DynamicPresetsPanel?.Children.OfType<Button>().ToList();
             switch (e.Key)
             {
@@ -547,7 +552,7 @@ namespace ResizeMe
                 case Windows.System.VirtualKey.Down:
                     if (buttons != null && buttons.Count > 0)
                     {
-                        FocusPreset(_presetIndex + 1);
+                        FocusPreset(_stateManager.PresetIndex + 1);
                         e.Handled = true;
                     }
                     break;
@@ -555,14 +560,14 @@ namespace ResizeMe
                 case Windows.System.VirtualKey.Up:
                     if (buttons != null && buttons.Count > 0)
                     {
-                        FocusPreset(_presetIndex - 1);
+                        FocusPreset(_stateManager.PresetIndex - 1);
                         e.Handled = true;
                     }
                     break;
                 case Windows.System.VirtualKey.Enter:
-                    if (buttons != null && _presetIndex >= 0 && _presetIndex < buttons.Count)
+                    if (buttons != null && _stateManager.PresetIndex >= 0 && _stateManager.PresetIndex < buttons.Count)
                     {
-                        PresetButton_Click(buttons[_presetIndex], new RoutedEventArgs());
+                        PresetButton_Click(buttons[_stateManager.PresetIndex], new RoutedEventArgs());
                         e.Handled = true;
                     }
                     break;
@@ -573,7 +578,7 @@ namespace ResizeMe
         {
             if (args.WindowActivationState == WindowActivationState.Deactivated)
             {
-                if (_isVisible && !_isAlwaysOnTop)
+                if (_stateManager.IsVisible && !_stateManager.IsAlwaysOnTop)
                 {
                     // Delay briefly to avoid hiding when clicking inside quickly
                     _ = Task.Run(async () =>
@@ -589,9 +594,10 @@ namespace ResizeMe
 
         private void AlwaysOnTopButton_Click(object sender, RoutedEventArgs e)
         {
-            _isAlwaysOnTop = !_isAlwaysOnTop;
+            var newState = !_stateManager.IsAlwaysOnTop;
+            _stateManager.SetAlwaysOnTop(newState);
             ApplyAlwaysOnTop();
-            StatusText.Text = _isAlwaysOnTop ? "Pinned" : "Normal";
+                    _statusManager?.SetStatus(_stateManager.IsAlwaysOnTop ? "Pinned" : "Normal", TimeSpan.FromSeconds(2));
         }
 
         // Toggle handler for CenterOnResize preference
@@ -601,9 +607,10 @@ namespace ResizeMe
             {
                 if (CenterOnResizeToggle != null)
                 {
-                    _centerOnResize = CenterOnResizeToggle.IsOn;
-                    ResizeMe.Services.UserPreferences.CenterOnResize = _centerOnResize;
-                    StatusText.Text = _centerOnResize ? "Center on resize: On" : "Center on resize: Off";
+                    var newVal = CenterOnResizeToggle.IsOn;
+                    _stateManager.SetCenterOnResize(newVal);
+                    ResizeMe.Services.UserPreferences.CenterOnResize = newVal;
+                            _statusManager?.SetStatus(_stateManager.CenterOnResize ? "Center on resize: On" : "Center on resize: Off", TimeSpan.FromSeconds(2));
                 }
             }
             catch (Exception ex)
@@ -615,7 +622,7 @@ namespace ResizeMe
         private void ApplyAlwaysOnTop()
         {
             if (_windowHandle == IntPtr.Zero) return;
-            var insertAfter = _isAlwaysOnTop ? WindowsApi.HWND_TOPMOST : WindowsApi.HWND_NOTOPMOST;
+            var insertAfter = _stateManager.IsAlwaysOnTop ? WindowsApi.HWND_TOPMOST : WindowsApi.HWND_NOTOPMOST;
             WindowsApi.SetWindowPos(_windowHandle, insertAfter, 0, 0, 0, 0, WindowsApi.SWP_NOMOVE | WindowsApi.SWP_NOSIZE | WindowsApi.SWP_NOACTIVATE);
         }
 
@@ -630,36 +637,7 @@ namespace ResizeMe
             }
         }
 
-        private IntPtr WndProcSubClass(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, IntPtr uIdSubclass, IntPtr dwRefData)
-        {
-            // Intercept system close (titlebar 'X') and hide to tray instead of closing
-            if (uMsg == WM_SYSCOMMAND && wParam.ToInt32() == SC_CLOSE)
-            {
-                HideWindow();
-                return IntPtr.Zero;
-            }
-
-            // Tray icon callback handling: respond to right-click menu and left-click toggle
-            if (_trayIcon != null && uMsg == (uint)_trayIcon.TrayCallbackMessage)
-            {
-                int lParamVal = lParam.ToInt32();
-                // Right button up shows context menu
-                if (lParamVal == WM_RBUTTONUP)
-                {
-                    _trayIcon.ShowContextMenu();
-                    return IntPtr.Zero;
-                }
-                // WM_LBUTTONUP (0x0202) toggles show/hide
-                if (lParamVal == 0x0202)
-                {
-                    ToggleVisibility();
-                    return IntPtr.Zero;
-                }
-            }
-            // Preserve hotkey processing
-            if (_hotKeyManager?.ProcessMessage(uMsg, wParam, lParam) == true) return IntPtr.Zero;
-            return WinApiSubClass.DefSubclassProc(hWnd, uMsg, wParam, lParam);
-        }
+        
 
         private void OpenSettingsWindow()
         {
@@ -674,11 +652,11 @@ namespace ResizeMe
                     DispatcherQueue.TryEnqueue(LoadPresetButtons);
                 };
                 win.Activate();
-                StatusText.Text = "Settings opened";
+                _statusManager?.SetStatus("Settings opened", TimeSpan.FromSeconds(2));
             }
             catch (Exception ex)
             {
-                StatusText.Text = "Settings failed";
+                _statusManager?.SetStatus("Settings failed", TimeSpan.FromSeconds(3));
                 System.Diagnostics.Debug.WriteLine($"Settings open error: {ex.Message}");
             }
         }
@@ -699,7 +677,7 @@ namespace ResizeMe
                         DispatcherQueue.TryEnqueue(LoadPresetButtons);
                     };
                     win.Activate();
-                    StatusText.Text = "First-run settings";
+                    _statusManager?.SetStatus("First-run settings", TimeSpan.FromSeconds(3));
                 }
             }
             catch (Exception ex)
@@ -734,30 +712,30 @@ namespace ResizeMe
             DispatcherQueue.TryEnqueue(LoadPresetButtons);
         }
 
-        private void AnimateShow()
-        {
-            if (RootGrid == null) return;
-            RootGrid.Opacity = 0;
-            var animation = RootGrid.CreateDoubleAnimation(0, 1, 180);
-            var visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(RootGrid);
-            var compositor = visual.Compositor;
-            var batch = compositor.CreateBatch();
-            visual.StartAnimation("Opacity", animation);
-            batch.Completed += (_, _) => RootGrid.DispatcherQueue.TryEnqueue(() => RootGrid.Opacity = 1);
-            batch.End();
-        }
+        // Animation helpers are implemented in `WindowAnimations` helper.
+    }
 
-        private void AnimateHide()
-        {
-            if (RootGrid == null) return;
-            var animation = RootGrid.CreateDoubleAnimation(RootGrid.Opacity, 0, 120);
-            var visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(RootGrid);
-            var compositor = visual.Compositor;
-            var batch = compositor.CreateBatch();
-            visual.StartAnimation("Opacity", animation);
-            batch.Completed += (_, _) => RootGrid.DispatcherQueue.TryEnqueue(() => RootGrid.Opacity = 0);
-            batch.End();
-        }
+    /// <summary>
+    /// Simple state manager for the main window to centralize visibility,
+    /// always-on-top, active preset tag, preset index and center-on-resize state.
+    /// </summary>
+    internal class WindowStateManager
+    {
+        public bool IsVisible { get; private set; }
+        public bool IsAlwaysOnTop { get; private set; }
+        public int PresetIndex { get; private set; } = -1;
+        public string? ActivePresetTag { get; private set; }
+        public bool CenterOnResize { get; private set; }
+
+        public void Show() => IsVisible = true;
+        public void Hide() { IsVisible = false; PresetIndex = -1; }
+        public void Toggle() => IsVisible = !IsVisible;
+        public void SetAlwaysOnTop(bool value) => IsAlwaysOnTop = value;
+        public void SetCenterOnResize(bool value) => CenterOnResize = value;
+        public void SetActivePreset(string? tag) => ActivePresetTag = tag;
+        public string? GetActivePresetTag() => ActivePresetTag;
+        public void SetPresetIndex(int index) => PresetIndex = index;
+        public void ResetPresetIndex() => PresetIndex = -1;
     }
 
     internal static class WinApiSubClass
@@ -767,6 +745,8 @@ namespace ResizeMe
         [DllImport("comctl32.dll")] public static extern IntPtr DefSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
         [DllImport("comctl32.dll")] public static extern bool RemoveWindowSubclass(IntPtr hWnd, SubClassProc pfnSubclass, IntPtr uIdSubclass);
     }
+
+    
 
     internal static class AnimationExtensions
     {

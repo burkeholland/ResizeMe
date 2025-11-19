@@ -21,6 +21,11 @@ namespace ResizeMe.Services
         private readonly List<PresetSize> _presets = new();
         private bool _loaded;
 
+        /// <summary>
+        /// Indicates whether presets have been loaded from disk.
+        /// </summary>
+        public bool IsLoaded => _loaded;
+
         /// <summary>Returns a snapshot of current presets.</summary>
         public IReadOnlyList<PresetSize> Presets
         {

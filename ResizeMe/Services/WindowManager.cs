@@ -138,7 +138,10 @@ namespace ResizeMe.Services
         }
 
         /// <summary>
-        /// Determines whether a window should be considered resizable by the user
+        /// Determines whether a window should be considered resizable by the user.
+        /// Uses a conservative set of filters to exclude system, tool, or cloaked windows
+        /// (class names, titles, visibility, size, extended styles, DWM cloaking, and process id checks).
+        /// This prevents trying to resize windows that are not user windows or are system-managed.
         /// </summary>
         /// <param name="windowInfo">Window information to evaluate</param>
         /// <returns>True if the window can be resized, false otherwise</returns>

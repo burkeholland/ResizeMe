@@ -335,5 +335,85 @@ namespace ResizeMe.Native
 
         public const uint MB_OK = 0x00000000; // Using simple OK button
         public const uint MB_TOPMOST = 0x00040000;
+
+        // --- Tray icon and menu related declarations ---
+        public const int WM_USER_TRAY = 0x0400 + 500;
+        public const int NIF_MESSAGE = 0x0001;
+        public const int NIF_ICON = 0x0002;
+        public const int NIF_TIP = 0x0004;
+        public const int NIM_ADD = 0x00000000;
+        public const int NIM_MODIFY = 0x00000001;
+        public const int NIM_DELETE = 0x00000002;
+
+        public const uint TPM_RIGHTBUTTON = 0x0002;
+        public const uint TPM_RETURNCMD = 0x0100;
+
+        public const uint IMAGE_ICON = 1;
+        public const uint LR_LOADFROMFILE = 0x00000010;
+        public const uint LR_DEFAULTSIZE = 0x00000040;
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        public struct NOTIFYICONDATA
+        {
+            public int cbSize;
+            public IntPtr hWnd;
+            public int uID;
+            public int uFlags;
+            public int uCallbackMessage;
+            public IntPtr hIcon;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+            public string szTip;
+        }
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool Shell_NotifyIcon(int dwMessage, ref NOTIFYICONDATA lpdata);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern IntPtr CreatePopupMenu();
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern bool DestroyMenu(IntPtr hMenu);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern bool AppendMenu(IntPtr hMenu, uint uFlags, uint uIDNewItem, string lpNewItem);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern uint TrackPopupMenuEx(IntPtr hMenu, uint uFlags, int x, int y, IntPtr hWnd, IntPtr lpTpm);
+
+        [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT lpPoint);
+
+        [DllImport("user32.dll")] public static extern IntPtr LoadIcon(IntPtr hInstance, IntPtr lpIconName);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern IntPtr LoadImage(IntPtr hInstance, string lpszName, uint uType, int cxDesired, int cyDesired, uint fuLoad);
+
+        // Monitor and cursor constants and structures
+        public const uint MONITOR_DEFAULTTONEAREST = 2;
+
+        // Small user-level positioning constants
+        public const int OFFSET_FROM_CURSOR = 20;
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        public struct MONITORINFO
+        {
+            public int cbSize;
+            public RECT rcMonitor;
+            public RECT rcWork;
+            public uint dwFlags;
+
+            public static MONITORINFO Default
+            {
+                get
+                {
+                    var mi = new MONITORINFO();
+                    mi.cbSize = Marshal.SizeOf(mi);
+                    return mi;
+                }
+            }
+        }
+
+        [DllImport("user32.dll")] public static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
+        [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
     }
 }

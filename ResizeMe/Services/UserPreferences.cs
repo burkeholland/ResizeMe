@@ -14,39 +14,43 @@ namespace ResizeMe.Services
         private const string HotKeyModifiersKey = "HotKeyModifiers"; // e.g. WIN+SHIFT
         private const string HotKeyCodeKey = "HotKeyKey";           // e.g. F12
 
+        private static T GetPreference<T>(string key, T defaultValue)
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                if (settings.Values.TryGetValue(key, out var val) && val is T t)
+                {
+                    return t;
+                }
+            }
+            catch
+            {
+                // Preferences should never crash the app.
+            }
+            return defaultValue;
+        }
+
+        private static void SetPreference<T>(string key, T value)
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                settings.Values[key] = value;
+            }
+            catch
+            {
+                // Swallow - ignore preferences save failures
+            }
+        }
+
         /// <summary>
         /// Gets or sets whether windows should be centered after a quick resize.
         /// </summary>
         public static bool CenterOnResize
         {
-            get
-            {
-                try
-                {
-                    var settings = ApplicationData.Current.LocalSettings;
-                    if (settings.Values.TryGetValue(CenterKey, out var val) && val is bool b)
-                    {
-                        return b;
-                    }
-                }
-                catch
-                {
-                    // Swallow - preferences should never crash the app.
-                }
-                return false;
-            }
-            set
-            {
-                try
-                {
-                    var settings = ApplicationData.Current.LocalSettings;
-                    settings.Values[CenterKey] = value;
-                }
-                catch
-                {
-                    // Swallow - ignore preferences save failures
-                }
-            }
+            get => GetPreference(CenterKey, false);
+            set => SetPreference(CenterKey, value);
         }
 
         /// <summary>
@@ -54,34 +58,8 @@ namespace ResizeMe.Services
         /// </summary>
         public static bool FirstRunCompleted
         {
-            get
-            {
-                try
-                {
-                    var settings = ApplicationData.Current.LocalSettings;
-                    if (settings.Values.TryGetValue(FirstRunKey, out var val) && val is bool b)
-                    {
-                        return b;
-                    }
-                }
-                catch
-                {
-                    // Swallow - preferences should never crash the app.
-                }
-                return false; // default: not completed
-            }
-            set
-            {
-                try
-                {
-                    var settings = ApplicationData.Current.LocalSettings;
-                    settings.Values[FirstRunKey] = value;
-                }
-                catch
-                {
-                    // Swallow - ignore save failures
-                }
-            }
+            get => GetPreference(FirstRunKey, false);
+            set => SetPreference(FirstRunKey, value);
         }
 
         /// <summary>
@@ -89,28 +67,8 @@ namespace ResizeMe.Services
         /// </summary>
         public static bool FirstMinimizeNotificationShown
         {
-            get
-            {
-                try
-                {
-                    var settings = ApplicationData.Current.LocalSettings;
-                    if (settings.Values.TryGetValue(FirstMinimizeKey, out var val) && val is bool b)
-                    {
-                        return b;
-                    }
-                }
-                catch { }
-                return false;
-            }
-            set
-            {
-                try
-                {
-                    var settings = ApplicationData.Current.LocalSettings;
-                    settings.Values[FirstMinimizeKey] = value;
-                }
-                catch { }
-            }
+            get => GetPreference(FirstMinimizeKey, false);
+            set => SetPreference(FirstMinimizeKey, value);
         }
 
         /// <summary>
@@ -120,26 +78,10 @@ namespace ResizeMe.Services
         {
             get
             {
-                try
-                {
-                    var s = Windows.Storage.ApplicationData.Current.LocalSettings;
-                    if (s.Values.TryGetValue(HotKeyModifiersKey, out var val) && val is string str && !string.IsNullOrWhiteSpace(str))
-                    {
-                        return str.ToUpperInvariant();
-                    }
-                }
-                catch { }
-                return "CTRL+WIN"; // default
+                var value = GetPreference<string>(HotKeyModifiersKey, "CTRL+WIN");
+                return string.IsNullOrWhiteSpace(value) ? "CTRL+WIN" : value.ToUpperInvariant();
             }
-            set
-            {
-                try
-                {
-                    var s = Windows.Storage.ApplicationData.Current.LocalSettings;
-                    s.Values[HotKeyModifiersKey] = value.ToUpperInvariant();
-                }
-                catch { }
-            }
+            set => SetPreference(HotKeyModifiersKey, string.IsNullOrWhiteSpace(value) ? "CTRL+WIN" : value.ToUpperInvariant());
         }
 
         /// <summary>
@@ -149,26 +91,10 @@ namespace ResizeMe.Services
         {
             get
             {
-                try
-                {
-                    var s = Windows.Storage.ApplicationData.Current.LocalSettings;
-                    if (s.Values.TryGetValue(HotKeyCodeKey, out var val) && val is string str && !string.IsNullOrWhiteSpace(str))
-                    {
-                        return str.ToUpperInvariant();
-                    }
-                }
-                catch { }
-                return "R"; // default
+                var value = GetPreference<string>(HotKeyCodeKey, "R");
+                return string.IsNullOrWhiteSpace(value) ? "R" : value.ToUpperInvariant();
             }
-            set
-            {
-                try
-                {
-                    var s = Windows.Storage.ApplicationData.Current.LocalSettings;
-                    s.Values[HotKeyCodeKey] = value.ToUpperInvariant();
-                }
-                catch { }
-            }
+            set => SetPreference(HotKeyCodeKey, string.IsNullOrWhiteSpace(value) ? "R" : value.ToUpperInvariant());
         }
     }
 }

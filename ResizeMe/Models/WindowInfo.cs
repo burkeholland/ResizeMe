@@ -38,7 +38,7 @@ namespace ResizeMe.Models
         public bool IsMinimized { get; set; }
 
         /// <summary>
-        /// Gets or sets the current window bounds
+        /// Gets or sets the current window bounds (snapshot captured at the time of enumeration)
         /// </summary>
         public WindowBounds Bounds { get; set; } = new();
 

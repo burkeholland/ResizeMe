@@ -346,6 +346,12 @@ namespace ResizeMe
             HotkeyErrorText.Visibility = Visibility.Collapsed;
         }
 
+        /// <summary>
+        /// Attempts to re-register the application's hotkey via the main window instance.
+        /// Reflection is used to avoid a tight coupling between SettingsWindow and MainWindow
+        /// (we only need to trigger re-registration, not own a direct reference).
+        /// This keeps the settings UI independent of the main window lifecycle.
+        /// </summary>
         private void TryReRegisterFromMainWindow()
         {
             try

@@ -13,67 +13,9 @@ namespace ResizeMe.Helpers
     /// </summary>
     public static class WindowPositionHelper
     {
-        // P/Invoke declarations for cursor and screen information
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool GetCursorPos(out POINT lpPoint);
+        // Use WindowsApi P/Invoke declarations for cursor and monitor information
 
-        [DllImport("user32.dll")]
-        public static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
-
-        // Constants
-        private const uint MONITOR_DEFAULTTONEAREST = 2;
-        private const uint SWP_NOSIZE = 0x0001;
-        private const uint SWP_NOZORDER = 0x0004;
-        private const uint SWP_NOACTIVATE = 0x0010;
-        private const int OFFSET_FROM_CURSOR = 20; // Pixels offset from cursor
-
-        // Structures
-        [StructLayout(LayoutKind.Sequential)]
-        public struct POINT
-        {
-            public int X;
-            public int Y;
-        }
-
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
-        public struct MONITORINFO
-        {
-            public int cbSize;
-            public RECT rcMonitor;
-            public RECT rcWork;
-            public uint dwFlags;
-
-            public static MONITORINFO Default
-            {
-                get
-                {
-                    var mi = new MONITORINFO();
-                    mi.cbSize = Marshal.SizeOf(mi);
-                    return mi;
-                }
-            }
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct RECT
-        {
-            public int Left;
-            public int Top;
-            public int Right;
-            public int Bottom;
-
-            public int Width => Right - Left;
-            public int Height => Bottom - Top;
-        }
+        // Intentionally using the structs declared in WindowsApi (POINT, MONITORINFO, RECT)
 
         /// <summary>
         /// Positions a WinUI window near the cursor while keeping it within screen bounds
@@ -85,7 +27,7 @@ namespace ResizeMe.Helpers
             try
             {
                 // Get cursor position
-                if (!GetCursorPos(out POINT cursorPos))
+                if (!WindowsApi.GetCursorPos(out var cursorPos))
                 {
                     Debug.WriteLine("WindowPositionHelper: Failed to get cursor position");
                     return;
@@ -94,10 +36,10 @@ namespace ResizeMe.Helpers
                 Debug.WriteLine($"WindowPositionHelper: Cursor position: {cursorPos.X}, {cursorPos.Y}");
 
                 // Get monitor information for the cursor location
-                IntPtr monitor = MonitorFromPoint(cursorPos, MONITOR_DEFAULTTONEAREST);
-                var monitorInfo = MONITORINFO.Default;
+                IntPtr monitor = WindowsApi.MonitorFromPoint(cursorPos, WindowsApi.MONITOR_DEFAULTTONEAREST);
+                var monitorInfo = WindowsApi.MONITORINFO.Default;
                 
-                if (!GetMonitorInfo(monitor, ref monitorInfo))
+                if (!WindowsApi.GetMonitorInfo(monitor, ref monitorInfo))
                 {
                     Debug.WriteLine("WindowPositionHelper: Failed to get monitor information");
                     return;
@@ -132,8 +74,8 @@ namespace ResizeMe.Helpers
                 Debug.WriteLine($"WindowPositionHelper: Positioning window at {targetX}, {targetY} (size: {windowWidth}x{windowHeight})");
 
                 // Set the window position
-                bool success = SetWindowPos(hWnd, IntPtr.Zero, targetX, targetY, 0, 0, 
-                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+                bool success = WindowsApi.SetWindowPos(hWnd, IntPtr.Zero, targetX, targetY, 0, 0, 
+                    WindowsApi.SWP_NOSIZE | WindowsApi.SWP_NOZORDER | WindowsApi.SWP_NOACTIVATE);
 
                 if (!success)
                 {
@@ -153,33 +95,33 @@ namespace ResizeMe.Helpers
         /// <summary>
         /// Calculates the initial position based on cursor location and preference
         /// </summary>
-        private static void CalculateInitialPosition(POINT cursorPos, PreferredPosition preference, 
+        private static void CalculateInitialPosition(WindowsApi.POINT cursorPos, PreferredPosition preference, 
             int windowWidth, int windowHeight, out int x, out int y)
         {
             switch (preference)
             {
                 case PreferredPosition.Right:
-                    x = cursorPos.X + OFFSET_FROM_CURSOR;
+                    x = cursorPos.X + WindowsApi.OFFSET_FROM_CURSOR;
                     y = cursorPos.Y - (windowHeight / 2);
                     break;
 
                 case PreferredPosition.Left:
-                    x = cursorPos.X - windowWidth - OFFSET_FROM_CURSOR;
+                    x = cursorPos.X - windowWidth - WindowsApi.OFFSET_FROM_CURSOR;
                     y = cursorPos.Y - (windowHeight / 2);
                     break;
 
                 case PreferredPosition.Below:
                     x = cursorPos.X - (windowWidth / 2);
-                    y = cursorPos.Y + OFFSET_FROM_CURSOR;
+                    y = cursorPos.Y + WindowsApi.OFFSET_FROM_CURSOR;
                     break;
 
                 case PreferredPosition.Above:
                     x = cursorPos.X - (windowWidth / 2);
-                    y = cursorPos.Y - windowHeight - OFFSET_FROM_CURSOR;
+                    y = cursorPos.Y - windowHeight - WindowsApi.OFFSET_FROM_CURSOR;
                     break;
 
                 default:
-                    x = cursorPos.X + OFFSET_FROM_CURSOR;
+                    x = cursorPos.X + WindowsApi.OFFSET_FROM_CURSOR;
                     y = cursorPos.Y - (windowHeight / 2);
                     break;
             }
@@ -188,7 +130,7 @@ namespace ResizeMe.Helpers
         /// <summary>
         /// Adjusts position to ensure window stays within screen bounds
         /// </summary>
-        private static void AdjustForScreenBounds(RECT workArea, ref int x, ref int y, int windowWidth, int windowHeight)
+        private static void AdjustForScreenBounds(WindowsApi.RECT workArea, ref int x, ref int y, int windowWidth, int windowHeight)
         {
             // Adjust horizontal position
             if (x < workArea.Left)
@@ -220,16 +162,16 @@ namespace ResizeMe.Helpers
             try
             {
                 // Get cursor position to determine which monitor
-                if (!GetCursorPos(out POINT cursorPos))
+                if (!WindowsApi.GetCursorPos(out var cursorPos))
                 {
-                    cursorPos = new POINT { X = 0, Y = 0 };
+                    cursorPos = new WindowsApi.POINT { X = 0, Y = 0 };
                 }
 
                 // Get monitor information
-                IntPtr monitor = MonitorFromPoint(cursorPos, MONITOR_DEFAULTTONEAREST);
-                var monitorInfo = MONITORINFO.Default;
+                IntPtr monitor = WindowsApi.MonitorFromPoint(cursorPos, WindowsApi.MONITOR_DEFAULTTONEAREST);
+                var monitorInfo = WindowsApi.MONITORINFO.Default;
                 
-                if (!GetMonitorInfo(monitor, ref monitorInfo))
+                if (!WindowsApi.GetMonitorInfo(monitor, ref monitorInfo))
                 {
                     return;
                 }
@@ -249,8 +191,8 @@ namespace ResizeMe.Helpers
                 int centerX = workArea.Left + (workArea.Width - windowWidth) / 2;
                 int centerY = workArea.Top + (workArea.Height - windowHeight) / 2;
 
-                SetWindowPos(hWnd, IntPtr.Zero, centerX, centerY, 0, 0, 
-                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+                WindowsApi.SetWindowPos(hWnd, IntPtr.Zero, centerX, centerY, 0, 0, 
+                    WindowsApi.SWP_NOSIZE | WindowsApi.SWP_NOZORDER | WindowsApi.SWP_NOACTIVATE);
             }
             catch (Exception ex)
             {
@@ -304,17 +246,17 @@ namespace ResizeMe.Helpers
                 int targetX = anchorCenterX - (windowWidth / 2);
                 int targetY = anchorCenterY - (windowHeight / 2);
 
-                var monitorPoint = new POINT { X = anchorCenterX, Y = anchorCenterY };
-                var monitorInfo = MONITORINFO.Default;
-                IntPtr monitor = MonitorFromPoint(monitorPoint, MONITOR_DEFAULTTONEAREST);
+                var monitorPoint = new WindowsApi.POINT { X = anchorCenterX, Y = anchorCenterY };
+                var monitorInfo = WindowsApi.MONITORINFO.Default;
+                IntPtr monitor = WindowsApi.MonitorFromPoint(monitorPoint, WindowsApi.MONITOR_DEFAULTTONEAREST);
 
-                if (monitor != IntPtr.Zero && GetMonitorInfo(monitor, ref monitorInfo))
+                if (monitor != IntPtr.Zero && WindowsApi.GetMonitorInfo(monitor, ref monitorInfo))
                 {
                     AdjustForScreenBounds(monitorInfo.rcWork, ref targetX, ref targetY, windowWidth, windowHeight);
                 }
 
-                bool success = SetWindowPos(hWnd, IntPtr.Zero, targetX, targetY, 0, 0,
-                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+                bool success = WindowsApi.SetWindowPos(hWnd, IntPtr.Zero, targetX, targetY, 0, 0,
+                    WindowsApi.SWP_NOSIZE | WindowsApi.SWP_NOZORDER | WindowsApi.SWP_NOACTIVATE);
 
                 if (!success)
                 {
@@ -353,11 +295,11 @@ namespace ResizeMe.Helpers
                 var windowHeight = rect.Height;
 
                 // Compute center point of the window to find the correct monitor
-                var center = new POINT { X = rect.Left + (windowWidth / 2), Y = rect.Top + (windowHeight / 2) };
+                var center = new WindowsApi.POINT { X = rect.Left + (windowWidth / 2), Y = rect.Top + (windowHeight / 2) };
 
-                IntPtr monitor = MonitorFromPoint(center, MONITOR_DEFAULTTONEAREST);
-                var monitorInfo = MONITORINFO.Default;
-                if (!GetMonitorInfo(monitor, ref monitorInfo))
+                IntPtr monitor = WindowsApi.MonitorFromPoint(center, WindowsApi.MONITOR_DEFAULTTONEAREST);
+                var monitorInfo = WindowsApi.MONITORINFO.Default;
+                if (!WindowsApi.GetMonitorInfo(monitor, ref monitorInfo))
                 {
                     Debug.WriteLine("WindowPositionHelper: Failed to get monitor info for external window.");
                     return;
@@ -368,8 +310,8 @@ namespace ResizeMe.Helpers
                 int targetX = workArea.Left + (workArea.Width - windowWidth) / 2;
                 int targetY = workArea.Top + (workArea.Height - windowHeight) / 2;
 
-                bool success = SetWindowPos(windowInfo.Handle, IntPtr.Zero, targetX, targetY, 0, 0,
-                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+                bool success = WindowsApi.SetWindowPos(windowInfo.Handle, IntPtr.Zero, targetX, targetY, 0, 0,
+                    WindowsApi.SWP_NOSIZE | WindowsApi.SWP_NOZORDER | WindowsApi.SWP_NOACTIVATE);
 
                 if (!success)
                 {

@@ -47,7 +47,9 @@ namespace ResizeMe
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
             _window = new MainWindow();
-            _window.Activate();
+            // Do not activate the main window on launch; keep the app hidden and running in the tray.
+            // Activation will happen on explicit user action (hotkey or tray).
+            // Note: Avoid calling Activate() here to prevent the window from appearing on start.
         }
     }
 }
