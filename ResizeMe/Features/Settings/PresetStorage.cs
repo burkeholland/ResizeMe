@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Windows.Storage;
 using ResizeMe.Models;
+using ResizeMe.Shared.Config;
 using ResizeMe.Shared.Logging;
 
 namespace ResizeMe.Features.Settings
@@ -15,7 +16,6 @@ namespace ResizeMe.Features.Settings
         private const string FileName = "presets.json";
         private readonly object _syncRoot = new();
         private readonly List<PresetSize> _presets = new();
-        private readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
         private bool _loaded;
 
         public bool IsLoaded => _loaded;
@@ -60,7 +60,7 @@ namespace ResizeMe.Features.Settings
                 }
 
                 var json = await FileIO.ReadTextAsync(file);
-                var data = JsonSerializer.Deserialize<List<PresetSize>>(json) ?? new List<PresetSize>();
+                var data = JsonSerializer.Deserialize(json, AppJsonContext.Default.ListPresetSize) ?? new List<PresetSize>();
                 lock (_syncRoot)
                 {
                     _presets.Clear();
@@ -150,7 +150,7 @@ namespace ResizeMe.Features.Settings
 
             var folder = ApplicationData.Current.LocalFolder;
             var file = await folder.CreateFileAsync(FileName, CreationCollisionOption.OpenIfExists);
-            var json = JsonSerializer.Serialize(snapshot, _jsonOptions);
+            var json = JsonSerializer.Serialize(snapshot, AppJsonContext.Default.ListPresetSize);
             await FileIO.WriteTextAsync(file, json);
         }
 

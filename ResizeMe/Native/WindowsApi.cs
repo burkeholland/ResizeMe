@@ -335,6 +335,7 @@ namespace ResizeMe.Native
 
         public const uint MB_OK = 0x00000000; // Using simple OK button
         public const uint MB_TOPMOST = 0x00040000;
+        public const uint MB_ICONERROR = 0x00000010;
 
         // --- Tray icon and menu related declarations ---
         public const int WM_USER_TRAY = 0x0400 + 500;

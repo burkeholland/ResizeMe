@@ -506,16 +506,25 @@ namespace ResizeMe
 
         private void OpenSettingsWindow()
         {
-            var window = new SettingsWindow();
-            window.PresetsChanged += SettingsPresetsChangedAsync;
-            window.Closed += async (_, _) =>
+            try
             {
-                window.PresetsChanged -= SettingsPresetsChangedAsync;
-                await _presets.LoadAsync(true);
-                DispatcherQueue.TryEnqueue(RenderPresetButtons);
-            };
-            window.Activate();
-            _status?.Show("Settings opened", TimeSpan.FromSeconds(2));
+                var window = new SettingsWindow();
+                window.PresetsChanged += SettingsPresetsChangedAsync;
+                window.Closed += async (_, _) =>
+                {
+                    window.PresetsChanged -= SettingsPresetsChangedAsync;
+                    await _presets.LoadAsync(true);
+                    DispatcherQueue.TryEnqueue(RenderPresetButtons);
+                };
+                window.Activate();
+                _status?.Show("Settings opened", TimeSpan.FromSeconds(2));
+            }
+            catch (Exception ex)
+            {
+                AppLog.Error(nameof(MainWindow), "Failed to open SettingsWindow", ex);
+                _status?.Show($"Error: {ex.Message}", TimeSpan.FromSeconds(5));
+                WindowsApi.MessageBoxW(IntPtr.Zero, $"Failed to open settings: {ex}", "ResizeMe Error", WindowsApi.MB_OK | WindowsApi.MB_ICONERROR);
+            }
         }
 
         private async void SettingsPresetsChangedAsync(object? sender, EventArgs e)

@@ -10,7 +10,7 @@
   <Identity
     Name="e7ad7fb1-b58c-45e4-bad3-b2845359b6cd"
     Publisher="CN=burke"
-    Version="1.1.1.0" />
+    Version="1.1.2.0" />
 
   <mp:PhoneIdentity PhoneProductId="e7ad7fb1-b58c-45e4-bad3-b2845359b6cd" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
