@@ -9,7 +9,7 @@ Two `.exe` files in the `releases/` folder:
 ## Requirements
 
 **Windows 10 (build 17763) or later**  
-**.NET 8 Runtime** (downloads automatically on first run if not present)
+**No external dependencies** (Self-contained .exe includes .NET 8 runtime)
 
 ## Installation
 
