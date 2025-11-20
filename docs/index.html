@@ -357,11 +357,9 @@
             // 1. Detect Architecture
             const getArch = () => {
                 const ua = navigator.userAgent;
-                if (ua.indexOf('WOW64') > -1 || ua.indexOf('Win64') > -1) {
-                    return 'x64';
-                } else {
-                    return 'x86';
-                }
+                if (ua.indexOf('ARM64') > -1) return 'arm64';
+                if (ua.indexOf('WOW64') > -1 || ua.indexOf('Win64') > -1) return 'x64';
+                return 'x86';
             };
             
             const arch = getArch();
@@ -377,30 +375,34 @@
                 const assets = data.assets;
                 let targetAsset = null;
 
-                // Strategy:
-                // 1. Look for msixbundle/appx with specific arch
-                // 2. Look for generic msixbundle (often contains all archs)
-                // 3. Look for exe
-                
+                // Strategy: Prioritize exact architecture match for .exe
+                // Filenames are expected to be like "ResizeMe-x64.exe"
                 targetAsset = assets.find(a => 
-                    a.name.toLowerCase().includes(arch) && 
-                    (a.name.endsWith('.msixbundle') || a.name.endsWith('.appx'))
+                    a.name.toLowerCase().endsWith(`-${arch}.exe`)
                 );
                 
-                if (!targetAsset) {
-                    targetAsset = assets.find(a => a.name.endsWith('.msixbundle'));
+                // Fallback: If on x64 but no x64 build, try x86 (runs on WoW64)
+                if (!targetAsset && arch === 'x64') {
+                    targetAsset = assets.find(a => a.name.toLowerCase().endsWith('-x86.exe'));
                 }
 
+                // Fallback: If on arm64, try x64 (emulation on Win11) or x86
+                if (!targetAsset && arch === 'arm64') {
+                     targetAsset = assets.find(a => a.name.toLowerCase().endsWith('-x64.exe')) || 
+                                   assets.find(a => a.name.toLowerCase().endsWith('-x86.exe'));
+                }
+
+                // Final fallback: Any .exe
                 if (!targetAsset) {
                     targetAsset = assets.find(a => a.name.endsWith('.exe'));
                 }
 
-                if (!targetAsset) {
-                    targetAsset = assets.find(a => a.name.endsWith('.zip'));
-                }
-
                 if (targetAsset) {
                     downloadBtn.href = targetAsset.browser_download_url;
+                    downloadBtn.textContent = `Download ${data.tag_name} for ${arch}`;
+                } else {
+                    // Fallback to releases page if no suitable asset found
+                    downloadBtn.href = `https://github.com/${repo}/releases/latest`;
                     downloadBtn.textContent = `Download ${data.tag_name}`;
                 }
 
