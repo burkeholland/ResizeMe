@@ -11,7 +11,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        arch: [x64, x86, ARM64]
+        arch: [x64, x86, arm64]
 
     steps:
     - uses: actions/checkout@v4
@@ -64,4 +64,4 @@ jobs:
         files: |
           artifacts/ResizeMe-x64-Installer/ResizeMe-x64-Installer.zip
           artifacts/ResizeMe-x86-Installer/ResizeMe-x86-Installer.zip
-          artifacts/ResizeMe-ARM64-Installer/ResizeMe-ARM64-Installer.zip
+          artifacts/ResizeMe-arm64-Installer/ResizeMe-arm64-Installer.zip
