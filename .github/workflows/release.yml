@@ -11,7 +11,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        arch: [x64, x86]
+        arch: [x64, x86, ARM64]
 
     steps:
     - uses: actions/checkout@v4
@@ -54,6 +54,7 @@ jobs:
       run: |
         mv artifacts/ResizeMe-x64/ResizeMe.exe artifacts/ResizeMe-x64/ResizeMe-x64.exe
         mv artifacts/ResizeMe-x86/ResizeMe.exe artifacts/ResizeMe-x86/ResizeMe-x86.exe
+        mv artifacts/ResizeMe-ARM64/ResizeMe.exe artifacts/ResizeMe-ARM64/ResizeMe-arm64.exe
 
     - name: Release
       uses: softprops/action-gh-release@v1
@@ -61,3 +62,4 @@ jobs:
         files: |
           artifacts/ResizeMe-x64/ResizeMe-x64.exe
           artifacts/ResizeMe-x86/ResizeMe-x86.exe
+          artifacts/ResizeMe-ARM64/ResizeMe-arm64.exe
