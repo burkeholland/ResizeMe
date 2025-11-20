@@ -11,7 +11,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        arch: [x64, x86, arm64]
+        arch: [x64, x86]
 
     steps:
     - uses: actions/checkout@v4
@@ -26,17 +26,13 @@ jobs:
 
     - name: Build and Publish (${{ matrix.arch }})
       run: |
-        dotnet publish ResizeMe/ResizeMe.csproj -c Release -f net8.0-windows10.0.19041.0 -r win-${{ matrix.arch }} --self-contained true -p:PublishSingleFile=false -p:PublishReadyToRun=false -p:PublishTrimmed=true -o build/${{ matrix.arch }}
-
-    - name: Create Archive
-      run: |
-        Compress-Archive -Path build/${{ matrix.arch }}/* -DestinationPath ResizeMe-${{ matrix.arch }}.zip
+        dotnet publish ResizeMe/ResizeMe.csproj -c Release -p:PublishProfile="win-${{ matrix.arch }}-standalone" -p:Platform="${{ matrix.arch }}" -p:IsStandaloneRelease=true
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
       with:
         name: ResizeMe-${{ matrix.arch }}
-        path: ResizeMe-${{ matrix.arch }}.zip
+        path: ResizeMe/bin/Release/net8.0-windows10.0.19041.0/win-${{ matrix.arch }}/publish/ResizeMe.exe
 
   release:
     needs: build
@@ -54,10 +50,14 @@ jobs:
     - name: Display structure of downloaded files
       run: ls -R artifacts
 
+    - name: Rename Artifacts
+      run: |
+        mv artifacts/ResizeMe-x64/ResizeMe.exe artifacts/ResizeMe-x64/ResizeMe-x64.exe
+        mv artifacts/ResizeMe-x86/ResizeMe.exe artifacts/ResizeMe-x86/ResizeMe-x86.exe
+
     - name: Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          artifacts/ResizeMe-x64/ResizeMe-x64.zip
-          artifacts/ResizeMe-x86/ResizeMe-x86.zip
-          artifacts/ResizeMe-arm64/ResizeMe-arm64.zip
+          artifacts/ResizeMe-x64/ResizeMe-x64.exe
+          artifacts/ResizeMe-x86/ResizeMe-x86.exe

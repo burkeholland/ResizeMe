@@ -9,8 +9,9 @@
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
-    <EnableMsixTooling Condition="'$(IsStandaloneRelease)' != 'true'">true</EnableMsixTooling>
+    <EnableMsixTooling>true</EnableMsixTooling>
     <WindowsPackageType Condition="'$(IsStandaloneRelease)' == 'true'">None</WindowsPackageType>
+    <WindowsAppSDKSelfContained Condition="'$(IsStandaloneRelease)' == 'true'">true</WindowsAppSDKSelfContained>
     <Nullable>enable</Nullable>
     
     <!-- Store Package Configuration -->
@@ -78,7 +79,7 @@
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
     <Optimize>true</Optimize>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>TRACE;DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
