@@ -64,15 +64,41 @@
         }
 
         .hero {
-            min-height: 90vh;
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
             text-align: center;
-            padding: 8rem 5% 4rem;
-            background: radial-gradient(circle at 50% 0%, #e6f4ff 0%, var(--bg-color) 70%);
+            padding: 9rem 5% 2rem;
+            background: radial-gradient(circle at 50% 0%, #eef8ff 0%, var(--bg-color) 70%);
             position: relative;
+            overflow: visible;
+            z-index: 2;
+        }
+
+        .hero-content {
+            max-width: 800px;
+            margin-bottom: 3rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .hero-image-wrapper {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto -120px;
+            position: relative;
+            z-index: 10;
+            animation: fadeInUp 1.2s ease-out 0.6s backwards;
+            padding: 0 20px;
+        }
+
+        .hero-app-screenshot {
+            width: 100%;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0,0,0,0.08);
+            background: white;
         }
 
         h1 {
@@ -136,8 +162,10 @@
         }
 
         .features {
-            padding: 5rem 10%;
+            padding: 12rem 10% 5rem;
             background: var(--secondary-bg);
+            position: relative;
+            z-index: 1;
         }
 
         .section-title {
@@ -180,91 +208,7 @@
             font-size: 0.95rem;
         }
 
-        .screenshot-section {
-            padding: 5rem 5%;
-            text-align: center;
-            background: var(--bg-color);
-        }
 
-        .mock-window {
-            max-width: 900px;
-            margin: 0 auto;
-            background: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-            overflow: hidden;
-            border: 1px solid rgba(0,0,0,0.1);
-            position: relative;
-            text-align: left;
-        }
-        
-        .mock-header {
-            background: #ffffff;
-            padding: 12px 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .window-title {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .window-controls {
-            display: flex;
-            gap: 16px;
-        }
-
-        .control { width: 10px; height: 10px; border: 1px solid #999; border-radius: 50%; }
-        /* Windows style controls are usually icons, but simple shapes work for abstract */
-        .control-icon { width: 10px; height: 10px; border: 1px solid #333; display: inline-block; }
-        .control-close { position: relative; width: 10px; height: 10px; }
-        .control-close::before, .control-close::after { content: ''; position: absolute; top: 50%; left: 50%; width: 12px; height: 1px; background: #333; transform: translate(-50%, -50%) rotate(45deg); }
-        .control-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
-
-        .mock-content {
-            height: 500px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #999;
-            font-size: 1.5rem;
-            background: #f9f9f9;
-            position: relative;
-        }
-
-        /* Abstract representation of the app UI based on screenshot */
-        .app-ui-abstract {
-            width: 100%;
-            height: 100%;
-            padding: 20px;
-            display: grid;
-            grid-template-columns: 250px 1fr;
-            gap: 20px;
-        }
-
-        .sidebar { background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        .main-area { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 15px; }
-        
-        .skeleton-text { height: 12px; background: #eee; border-radius: 4px; margin-bottom: 8px; }
-        .skeleton-title { height: 20px; background: #ddd; border-radius: 4px; margin-bottom: 15px; width: 60%; }
-        .skeleton-btn { height: 36px; background: var(--accent-color); border-radius: 4px; width: 100%; margin-top: auto; }
-        .skeleton-card { height: 60px; border: 1px solid #eee; border-radius: 6px; margin-bottom: 10px; }
-
-        .skeleton-text.w80 { width: 80%; }
-        .skeleton-text.w60 { width: 60%; }
-        .skeleton-text.w70 { width: 70%; }
-
-        .app-screenshot {
-            max-width: 100%;
-            border-radius: 8px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.15);
-            display: block;
-            margin: 0 auto;
-        }
 
         footer {
             padding: 3rem 5%;
@@ -306,13 +250,18 @@
     </header>
 
     <section class="hero">
-        <h1>Master Your Windows</h1>
-        <p class="tagline">Quick window resizing with preset dimensions and global hotkeys. The productivity tool you didn't know you needed.</p>
-        <div class="download-area">
-            <a href="https://github.com/burkeholland/ResizeMe/releases" class="cta-button" id="downloadBtn">Download for Windows</a>
-            <p class="version-info">
-                <span id="detectedArch"></span> <a href="https://github.com/burkeholland/ResizeMe/releases">View all releases</a>
-            </p>
+        <div class="hero-content">
+            <h1>Master Your Windows</h1>
+            <p class="tagline">Quick window resizing with preset dimensions and global hotkeys. The productivity tool you didn't know you needed.</p>
+            <div class="download-area">
+                <a href="https://github.com/burkeholland/ResizeMe/releases" class="cta-button" id="downloadBtn">Download for Windows</a>
+                <p class="version-info">
+                    <span id="detectedArch"></span> <a href="https://github.com/burkeholland/ResizeMe/releases">View all releases</a>
+                </p>
+            </div>
+        </div>
+        <div class="hero-image-wrapper">
+            <img src="images/screenshot.png?v=2" alt="ResizeMe App Interface" class="hero-app-screenshot">
         </div>
     </section>
 
@@ -338,10 +287,7 @@
         </div>
     </section>
 
-    <section class="screenshot-section">
-        <h2 class="section-title">See it in Action</h2>
-        <img src="images/screenshot.png" alt="ResizeMe Screenshot" class="app-screenshot">
-    </section>
+
 
     <footer>
         <p>&copy; 2025 Burke Holland. All rights reserved.</p>
