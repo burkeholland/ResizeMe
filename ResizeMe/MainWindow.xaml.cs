@@ -26,15 +26,14 @@ namespace ResizeMe
         private readonly MainWindowState _state = new();
         private readonly WindowDiscoveryService _windowDiscovery = new();
         private readonly WindowResizeService _windowResizer = new();
+        private readonly INativeWindowService _nativeWindowService = new NativeWindowService();
+        private readonly IWindowSubclassService _subclassService = new WindowSubclassService();
         private StatusBanner? _status;
         private TrayIconService? _trayIcon;
         private HotKeyService? _hotKey;
         private IntPtr _windowHandle;
         private AppWindow? _appWindow;
-        private WindowMessageBridge? _messageBridge;
-        private WinApiSubClass.SubClassProc? _subclassProc;
-        private readonly IntPtr _subclassId = new(1001);
-        private bool _subclassAttached;
+        
         private bool _initialized;
         private WindowInfo? _selectedWindow;
         private List<WindowInfo> _windows = new();
@@ -101,12 +100,8 @@ namespace ResizeMe
                 return;
             }
 
-            _windowHandle = WindowNative.GetWindowHandle(this);
-            if (_windowHandle != IntPtr.Zero)
-            {
-                var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_windowHandle);
-                _appWindow = AppWindow.GetFromWindowId(windowId);
-            }
+            _windowHandle = _nativeWindowService.EnsureWindowHandle(this);
+            _appWindow = _nativeWindowService.GetAppWindow(this);
         }
 
         private void ConfigureShell()
@@ -114,15 +109,13 @@ namespace ResizeMe
             try
             {
                 Title = "ResizeMe";
-                if (_appWindow != null)
+                if (_appWindow == null)
                 {
-                    var iconPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "AppIcon.ico");
-                    if (System.IO.File.Exists(iconPath))
-                    {
-                        _appWindow.SetIcon(iconPath);
-                    }
-                    _appWindow.Resize(new Windows.Graphics.SizeInt32(320, 540));
+                    return;
                 }
+
+                var iconPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "AppIcon.ico");
+                _nativeWindowService.ConfigureShell(_appWindow, "ResizeMe", iconPath, 320, 540);
             }
             catch (Exception ex)
             {
@@ -130,19 +123,14 @@ namespace ResizeMe
             }
         }
 
-        private void AttachSubclass()
+        private async void AttachSubclass()
         {
-            if (_subclassAttached || _windowHandle == IntPtr.Zero)
+            if (_windowHandle == IntPtr.Zero)
             {
                 return;
             }
-
-            _messageBridge = new WindowMessageBridge(this);
-            _subclassProc = _messageBridge.Handle;
-            if (WinApiSubClass.SetWindowSubclass(_windowHandle, _subclassProc, _subclassId, IntPtr.Zero))
-            {
-                _subclassAttached = true;
-            }
+            var handler = new WindowMessageHandler(this);
+            await _subclassService.AttachAsync(_windowHandle, handler);
         }
 
         private void InitializeIntegration()
@@ -280,8 +268,8 @@ namespace ResizeMe
 
                 if (_windowHandle != IntPtr.Zero)
                 {
-                    WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_RESTORE);
-                    WindowsApi.SetForegroundWindow(_windowHandle);
+                    _nativeWindowService.RestoreWindow(_windowHandle);
+                    _nativeWindowService.FocusWindow(_windowHandle);
                 }
 
                 Activate();
@@ -300,7 +288,7 @@ namespace ResizeMe
         {
             if (_windowHandle != IntPtr.Zero)
             {
-                WindowsApi.ShowWindow(_windowHandle, WindowsApi.SW_HIDE);
+                _nativeWindowService.HideWindow(_windowHandle);
             }
             _state.Hide();
             _status?.Show("Hidden", TimeSpan.Zero);
@@ -480,10 +468,8 @@ namespace ResizeMe
         {
             _trayIcon?.Dispose();
             _hotKey?.Dispose();
-            if (_subclassAttached && _subclassProc != null && _windowHandle != IntPtr.Zero)
-            {
-                WinApiSubClass.RemoveWindowSubclass(_windowHandle, _subclassProc, _subclassId);
-            }
+            _subclassService.Detach();
+            _subclassService.Dispose();
         }
 
         private void CenterOnResizeToggle_Toggled(object sender, RoutedEventArgs e)
@@ -559,21 +545,22 @@ namespace ResizeMe
             }
         }
 
-        private sealed class WindowMessageBridge
+        private sealed class WindowMessageHandler : IWindowMessageHandler
         {
             private readonly MainWindow _owner;
 
-            public WindowMessageBridge(MainWindow owner)
+
+            public WindowMessageHandler(MainWindow owner)
             {
                 _owner = owner;
             }
 
-            public IntPtr Handle(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam, IntPtr subclassId, IntPtr refData)
+            public IntPtr HandleWindowMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam)
             {
                 if (msg == WM_SYSCOMMAND && wParam.ToInt32() == SC_CLOSE)
                 {
                     _owner.HideWindow();
-                    return IntPtr.Zero;
+                    return new IntPtr(1);
                 }
 
                 if (_owner._trayIcon != null && msg == _owner._trayIcon.CallbackMessage)
@@ -582,36 +569,24 @@ namespace ResizeMe
                     if (param == WM_RBUTTONUP)
                     {
                         _owner._trayIcon.ShowContextMenu();
-                        return IntPtr.Zero;
+                        return new IntPtr(1);
                     }
                     if (param == WM_LBUTTONUP)
                     {
                         _owner.ToggleVisibility();
-                        return IntPtr.Zero;
+                        return new IntPtr(1);
                     }
                 }
 
                 if (_owner._hotKey != null && _owner._hotKey.HandleMessage(msg, wParam, lParam))
                 {
-                    return IntPtr.Zero;
+                    return new IntPtr(1);
                 }
 
-                return WinApiSubClass.DefSubclassProc(hwnd, msg, wParam, lParam);
+                return IntPtr.Zero;
             }
         }
 
-        private static class WinApiSubClass
-        {
-            public delegate IntPtr SubClassProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, IntPtr uIdSubclass, IntPtr dwRefData);
-
-            [DllImport("comctl32.dll")]
-            public static extern bool SetWindowSubclass(IntPtr hWnd, SubClassProc pfnSubclass, IntPtr uIdSubclass, IntPtr dwRefData);
-
-            [DllImport("comctl32.dll")]
-            public static extern bool RemoveWindowSubclass(IntPtr hWnd, SubClassProc pfnSubclass, IntPtr uIdSubclass);
-
-            [DllImport("comctl32.dll")]
-            public static extern IntPtr DefSubclassProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
-        }
+        
     }
 }
