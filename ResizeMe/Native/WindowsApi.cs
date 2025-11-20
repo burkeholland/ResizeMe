@@ -236,6 +236,9 @@ namespace ResizeMe.Native
         // Delegate for EnumWindows callback
         public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
+        // Delegate used for win32 SetWindowSubclass/DefSubclassProc callbacks
+        public delegate IntPtr SubClassProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, IntPtr uIdSubclass, IntPtr dwRefData);
+
         /// <summary>
         /// Enumerates all top-level windows on the desktop
         /// </summary>
