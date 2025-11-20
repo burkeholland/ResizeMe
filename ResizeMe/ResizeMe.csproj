@@ -40,15 +40,7 @@
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 
-  <ItemGroup>
-    <TrimmerRootDescriptor Include="Properties\Default.rd.xml" />
-    <TrimmerRootAssembly Include="ResizeMe" />
-    <TrimmerRootAssembly Include="WinRT.Runtime" />
-    <TrimmerRootAssembly Include="Microsoft.Windows.SDK.NET" />
-    <TrimmerRootAssembly Include="Microsoft.WinUI" />
-    <TrimmerRootAssembly Include="System.ObjectModel" />
-    <TrimmerRootAssembly Include="System.Runtime.InteropServices" />
-  </ItemGroup>
+
 
   <!--
     Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging

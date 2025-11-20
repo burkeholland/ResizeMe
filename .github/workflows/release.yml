@@ -26,13 +26,21 @@ jobs:
 
     - name: Build and Publish (${{ matrix.arch }})
       run: |
-        dotnet publish ResizeMe/ResizeMe.csproj -c Release -p:PublishProfile="win-${{ matrix.arch }}-standalone" -p:Platform="${{ matrix.arch }}" -p:IsStandaloneRelease=true
+        dotnet publish ResizeMe/ResizeMe.csproj -c Release -p:SelfContained=true -p:PublishSingleFile=false -p:PublishTrimmed=false -r win-${{ matrix.arch }} -p:WindowsPackageType=None
+
+    - name: Prepare Installer Package
+      run: |
+        mkdir ResizeMe_Dist
+        mkdir ResizeMe_Dist/data
+        cp -r ResizeMe/bin/Release/net8.0-windows10.0.19041.0/win-${{ matrix.arch }}/publish/* ResizeMe_Dist/data/
+        cp tools/"Install ResizeMe.bat" ResizeMe_Dist/
+        Compress-Archive -Path ResizeMe_Dist/* -DestinationPath ResizeMe-${{ matrix.arch }}-Installer.zip
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ResizeMe-${{ matrix.arch }}
-        path: ResizeMe/bin/Release/net8.0-windows10.0.19041.0/win-${{ matrix.arch }}/publish/ResizeMe.exe
+        name: ResizeMe-${{ matrix.arch }}-Installer
+        path: ResizeMe-${{ matrix.arch }}-Installer.zip
 
   release:
     needs: build
@@ -50,16 +58,10 @@ jobs:
     - name: Display structure of downloaded files
       run: ls -R artifacts
 
-    - name: Rename Artifacts
-      run: |
-        mv artifacts/ResizeMe-x64/ResizeMe.exe artifacts/ResizeMe-x64/ResizeMe-x64.exe
-        mv artifacts/ResizeMe-x86/ResizeMe.exe artifacts/ResizeMe-x86/ResizeMe-x86.exe
-        mv artifacts/ResizeMe-ARM64/ResizeMe.exe artifacts/ResizeMe-ARM64/ResizeMe-arm64.exe
-
     - name: Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          artifacts/ResizeMe-x64/ResizeMe-x64.exe
-          artifacts/ResizeMe-x86/ResizeMe-x86.exe
-          artifacts/ResizeMe-ARM64/ResizeMe-arm64.exe
+          artifacts/ResizeMe-x64-Installer/ResizeMe-x64-Installer.zip
+          artifacts/ResizeMe-x86-Installer/ResizeMe-x86-Installer.zip
+          artifacts/ResizeMe-ARM64-Installer/ResizeMe-ARM64-Installer.zip
