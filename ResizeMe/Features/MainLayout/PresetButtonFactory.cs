@@ -75,6 +75,7 @@ namespace ResizeMe.Features.MainLayout
             {
                 Content = container,
                 Tag = $"{preset.Width}x{preset.Height}",
+                DataContext = preset,
                 MinHeight = 44,
                 Padding = new Thickness(0),
                 HorizontalContentAlignment = HorizontalAlignment.Left,

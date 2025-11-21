@@ -15,28 +15,35 @@ using ResizeMe.Models;
 using ResizeMe.Native;
 using ResizeMe.Shared.Config;
 using ResizeMe.Shared.Logging;
+using ResizeMe.ViewModels;
 using WinRT.Interop;
 
 namespace ResizeMe
 {
     public sealed partial class MainWindow : Window
     {
+        private readonly MainViewModel _viewModel;
+        public MainViewModel ViewModel => _viewModel;
+        
+        public string? Status => _viewModel.Status;
+        public bool CenterOnResize
+        {
+            get => _viewModel.CenterOnResize;
+            set => _viewModel.CenterOnResize = value;
+        }
+        
         private readonly PresetStorage _presets = new();
         private readonly PresetPanelRenderer _presetPanel = new();
-        private readonly MainWindowState _state = new();
         private readonly WindowDiscoveryService _windowDiscovery = new();
         private readonly WindowResizeService _windowResizer = new();
         private readonly INativeWindowService _nativeWindowService = new NativeWindowService();
         private readonly IWindowSubclassService _subclassService = new WindowSubclassService();
-        private StatusBanner? _status;
         private TrayIconManager? _trayManager;
         private HotKeyService? _hotKey;
         private IntPtr _windowHandle;
         private AppWindow? _appWindow;
         
-        private bool _initialized;
-        private WindowInfo? _selectedWindow;
-        private List<WindowInfo> _windows = new();
+        private int _focusIndex = -1;
         private DateTime _lastToggle = DateTime.MinValue;
 
         private const int WM_SYSCOMMAND = 0x0112;
@@ -46,10 +53,17 @@ namespace ResizeMe
 
         public MainWindow()
         {
+            _viewModel = new MainViewModel(DispatcherQueue, _presets, _windowDiscovery, _windowResizer);
             InitializeComponent();
+            if (Content is FrameworkElement root)
+            {
+                root.DataContext = _viewModel;
+            }
             AttachRootHandlers();
             Activated += OnActivated;
             Closed += OnClosed;
+
+            _viewModel.PropertyChanged += ViewModel_PropertyChanged;
         }
 
         private void AttachRootHandlers()
@@ -69,23 +83,19 @@ namespace ResizeMe
             {
                 root.Loaded -= OnRootLoaded;
             }
-            if (_initialized)
-            {
-                return;
-            }
-
-            _initialized = true;
-            if (StatusText != null)
-            {
-                _status = new StatusBanner(StatusText);
-            }
 
             EnsureWindowHandle();
             ConfigureShell();
             AttachSubclass();
-            SyncCenterToggle();
 
-            await _presets.LoadAsync();
+            await _viewModel.InitializeAsync();
+            
+            // Sync initial UI state
+            if (CenterOnResizeToggle != null)
+            {
+                CenterOnResizeToggle.IsOn = _viewModel.CenterOnResize;
+            }
+            
             RenderPresetButtons();
 
             InitializeIntegration();
@@ -148,14 +158,7 @@ namespace ResizeMe
 
             _hotKey = new HotKeyService(_windowHandle);
             _hotKey.HotKeyTriggered += (_, _) => DispatcherQueue.TryEnqueue(ToggleVisibility);
-            if (_hotKey.TryRegister())
-            {
-                _status?.Show($"Ready ({UserSettingsStore.HotKeyModifiers}+{UserSettingsStore.HotKeyCode})", TimeSpan.Zero);
-            }
-            else
-            {
-                _status?.Show("Hotkey unavailable", TimeSpan.FromSeconds(4));
-            }
+            _hotKey.TryRegister();
         }
 
         private void InitializeTray()
@@ -189,15 +192,7 @@ namespace ResizeMe
             DispatcherQueue.TryEnqueue(PerformExit);
         }
 
-        private void SyncCenterToggle()
-        {
-            var center = UserSettingsStore.CenterOnResize;
-            _state.SetCenterOnResize(center);
-            if (CenterOnResizeToggle != null)
-            {
-                CenterOnResizeToggle.IsOn = center;
-            }
-        }
+
 
         private void ShowFirstRunFlows()
         {
@@ -238,11 +233,10 @@ namespace ResizeMe
             {
                 window.PresetsChanged -= SettingsPresetsChangedAsync;
                 UserSettingsStore.FirstRunCompleted = true;
-                await _presets.LoadAsync(true);
+                await _viewModel.ReloadPresetsAsync();
                 DispatcherQueue.TryEnqueue(RenderPresetButtons);
             };
             window.Activate();
-            _status?.Show("First-run setup", TimeSpan.FromSeconds(3));
         }
 
         private void ToggleVisibility()
@@ -253,13 +247,13 @@ namespace ResizeMe
             }
 
             _lastToggle = DateTime.UtcNow;
-            if (_state.IsVisible)
+            if (_viewModel.IsVisible)
             {
-                HideWindow();
+                _viewModel.Hide();
             }
             else
             {
-                _ = ShowWindowAsync();
+                _viewModel.Show();
             }
         }
 
@@ -268,10 +262,10 @@ namespace ResizeMe
             try
             {
                 EnsureWindowHandle();
-                await ReloadPresetsAsync();
-                RefreshWindowSnapshot();
+                await _viewModel.ReloadPresetsAsync();
+                _viewModel.RefreshWindowSnapshot();
 
-                var anchor = _windowDiscovery.GetActiveWindow() ?? _windows.FirstOrDefault();
+                var anchor = _viewModel.SelectedWindow;
                 if (anchor != null)
                 {
                     WindowPositionService.CenterOnWindow(this, anchor);
@@ -288,14 +282,12 @@ namespace ResizeMe
                 }
 
                 Activate();
-                _state.Show();
-                _status?.Show("Ready", TimeSpan.Zero);
+                _viewModel.Show();
                 RenderPresetButtons();
             }
             catch (Exception ex)
             {
                 AppLog.Error(nameof(MainWindow), "ShowWindowAsync failed", ex);
-                _status?.Show("Show failed", TimeSpan.FromSeconds(3));
             }
         }
 
@@ -305,22 +297,7 @@ namespace ResizeMe
             {
                 _nativeWindowService.HideWindow(_windowHandle);
             }
-            _state.Hide();
-            _status?.Show("Hidden", TimeSpan.Zero);
-        }
-
-        private async Task ReloadPresetsAsync()
-        {
-            if (!_presets.IsLoaded)
-            {
-                await _presets.LoadAsync();
-            }
-        }
-
-        private void RefreshWindowSnapshot()
-        {
-            _windows = _windowDiscovery.GetWindows().ToList();
-            _selectedWindow = _windowDiscovery.GetActiveWindow() ?? _windows.FirstOrDefault();
+            _viewModel.Hide();
         }
 
         private void RenderPresetButtons()
@@ -330,15 +307,15 @@ namespace ResizeMe
                 return;
             }
 
-            _presetPanel.Render(DynamicPresetsPanel, _presets.Presets, App.Current?.Resources, PresetButton_Click);
-            if (_presets.Presets.Any())
+            _presetPanel.Render(DynamicPresetsPanel, _viewModel.Presets, App.Current?.Resources, PresetButton_Click);
+            if (_viewModel.Presets.Any())
             {
                 if (PresetHint != null)
                 {
                     PresetHint.Text = "Customize in Settings";
                 }
                 var index = _presetPanel.Focus(DynamicPresetsPanel, 0);
-                _state.SetFocusIndex(index);
+                _focusIndex = index;
             }
             else
             {
@@ -346,7 +323,7 @@ namespace ResizeMe
                 {
                     PresetHint.Text = "No presets defined. Add in Settings.";
                 }
-                _state.SetFocusIndex(-1);
+                _focusIndex = -1;
             }
         }
 
@@ -363,7 +340,7 @@ namespace ResizeMe
                 return;
             }
 
-            var next = _state.FocusIndex + delta;
+            var next = _focusIndex + delta;
             if (next < 0)
             {
                 next = 0;
@@ -373,61 +350,54 @@ namespace ResizeMe
                 next = buttons.Count - 1;
             }
 
-            _state.SetFocusIndex(next);
+            _focusIndex = next;
             buttons[next].Focus(FocusState.Programmatic);
         }
 
-        private async Task ResizeSelectedWindowAsync(int width, int height, string sizeTag)
+
+
+        private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            var target = _selectedWindow ?? _windows.FirstOrDefault();
-            if (target == null)
+            if (e.PropertyName == nameof(MainViewModel.IsVisible))
             {
-                _status?.Show("No window", TimeSpan.FromSeconds(2));
-                return;
-            }
-
-            _status?.Show($"Resizing {sizeTag}...", TimeSpan.FromSeconds(5));
-            var result = _windowResizer.Resize(target, width, height);
-            if (result.Success)
-            {
-                if (_state.CenterOnResize)
+                if (_viewModel.IsVisible)
                 {
-                    WindowPositionService.CenterExternalWindow(target);
+                    _ = ShowWindowAsync();
                 }
-
-                _windowResizer.Activate(target);
-                _presetPanel.ApplyActiveStyle(DynamicPresetsPanel, sizeTag, App.Current?.Resources);
-                _state.SetActivePreset(sizeTag);
-                _status?.Show($"Done {sizeTag}", TimeSpan.FromSeconds(2));
-                await Task.Delay(500);
-                HideWindow();
+                else
+                {
+                    HideWindow();
+                }
             }
-            else
+            else if (e.PropertyName == nameof(MainViewModel.Status))
             {
-                _status?.Show(result.ErrorMessage ?? "Resize failed", TimeSpan.FromSeconds(3));
+                if (StatusText != null && _viewModel.Status != null)
+                {
+                    StatusText.Text = _viewModel.Status;
+                }
+            }
+            else if (e.PropertyName == nameof(MainViewModel.CenterOnResize))
+            {
+                if (CenterOnResizeToggle != null)
+                {
+                    CenterOnResizeToggle.IsOn = _viewModel.CenterOnResize;
+                }
             }
         }
 
         private void PresetButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn || btn.Tag is not string tag)
+            if (sender is not Button btn || btn.DataContext is not PresetSize preset)
             {
                 return;
             }
 
-            var parts = tag.Split('x');
-            if (parts.Length != 2 || !int.TryParse(parts[0], out int width) || !int.TryParse(parts[1], out int height))
-            {
-                _status?.Show("Invalid preset", TimeSpan.FromSeconds(3));
-                return;
-            }
-
-            _ = ResizeSelectedWindowAsync(width, height, tag);
+            _ = _viewModel.ResizeSelectedWindowAsync(preset);
         }
 
         private void OnKeyDown(object sender, KeyRoutedEventArgs e)
         {
-            if (!_state.IsVisible)
+            if (!_viewModel.IsVisible)
             {
                 return;
             }
@@ -449,15 +419,15 @@ namespace ResizeMe
                     e.Handled = true;
                     break;
                 case Windows.System.VirtualKey.Enter:
-                    if (DynamicPresetsPanel == null || _state.FocusIndex < 0)
+                    if (DynamicPresetsPanel == null || _focusIndex < 0)
                     {
                         return;
                     }
 
                     var buttons = DynamicPresetsPanel.Children.OfType<Button>().ToList();
-                    if (_state.FocusIndex < buttons.Count)
+                    if (_focusIndex < buttons.Count)
                     {
-                        PresetButton_Click(buttons[_state.FocusIndex], new RoutedEventArgs());
+                        PresetButton_Click(buttons[_focusIndex], new RoutedEventArgs());
                         e.Handled = true;
                     }
                     break;
@@ -466,7 +436,7 @@ namespace ResizeMe
 
         private void OnActivated(object sender, WindowActivatedEventArgs args)
         {
-            if (args.WindowActivationState == WindowActivationState.Deactivated && _state.IsVisible)
+            if (args.WindowActivationState == WindowActivationState.Deactivated && _viewModel.IsVisible)
             {
                 _ = Task.Run(async () =>
                 {
@@ -501,10 +471,7 @@ namespace ResizeMe
                 return;
             }
 
-            var value = CenterOnResizeToggle.IsOn;
-            _state.SetCenterOnResize(value);
-            UserSettingsStore.CenterOnResize = value;
-            _status?.Show(value ? "Center on resize on" : "Center on resize off", TimeSpan.FromSeconds(2));
+            _viewModel.CenterOnResize = CenterOnResizeToggle.IsOn;
         }
 
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
@@ -521,23 +488,21 @@ namespace ResizeMe
                 window.Closed += async (_, _) =>
                 {
                     window.PresetsChanged -= SettingsPresetsChangedAsync;
-                    await _presets.LoadAsync(true);
+                    await _viewModel.ReloadPresetsAsync();
                     DispatcherQueue.TryEnqueue(RenderPresetButtons);
                 };
                 window.Activate();
-                _status?.Show("Settings opened", TimeSpan.FromSeconds(2));
             }
             catch (Exception ex)
             {
                 AppLog.Error(nameof(MainWindow), "Failed to open SettingsWindow", ex);
-                _status?.Show($"Error: {ex.Message}", TimeSpan.FromSeconds(5));
                 WindowsApi.MessageBoxW(IntPtr.Zero, $"Failed to open settings: {ex}", "ResizeMe Error", WindowsApi.MB_OK | WindowsApi.MB_ICONERROR);
             }
         }
 
         private async void SettingsPresetsChangedAsync(object? sender, EventArgs e)
         {
-            await _presets.LoadAsync(true);
+            await _viewModel.ReloadPresetsAsync();
             DispatcherQueue.TryEnqueue(RenderPresetButtons);
         }
 
@@ -570,7 +535,6 @@ namespace ResizeMe
             else
             {
                 _hotKey.ReRegister();
-                _status?.Show($"Hotkey set to {UserSettingsStore.HotKeyModifiers}+{UserSettingsStore.HotKeyCode}", TimeSpan.FromSeconds(3));
             }
         }
 

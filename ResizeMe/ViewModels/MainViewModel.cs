@@ -1,67 +1,10 @@
-# Step 3.1: Create MainViewModel and Commands
-
-**Part of:** Step 3 from plan.md  
-**Focus:** Introduce `MainViewModel` to hold presets, window snapshot, and command logic  
-**Files to Create/Edit:** `ResizeMe/ViewModels/MainViewModel.cs`, `ResizeMe/ViewModels/ViewModelBase.cs`  
-**Estimated Time:** 20 minutes
-
-## Overview
-
-The ViewModel isolates state and logic currently stored directly on `MainWindow`. It loads presets, exposes observable collections, and surfaces commands for resize, settings, and toggles.
-
-## Pre-Substep Checklist
-
-- [x] **Branch:** `refactor/mainwindow-mvvm`
-- [x] **Current Step:** Steps 1 & 2 complete
-- [x] **Codebase State:** `dotnet build ResizeMe.sln`
-
-## Implementation
-
-### Goal
-Create a reusable MVVM foundation with `INotifyPropertyChanged`, then implement `MainViewModel` that orchestrates preset loading, window discovery, and resizing via injected services.
-
-### Step-by-Step Instructions
-
-#### Step 1: Create ViewModel base
-- [x] Add folder `ResizeMe/ViewModels/`
-- [x] Create `ViewModelBase.cs` with INotifyPropertyChanged implementation:
-
-```csharp
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-
-namespace ResizeMe.ViewModels
-{
-    public abstract class ViewModelBase : INotifyPropertyChanged
-    {
-        public event PropertyChangedEventHandler? PropertyChanged;
-
-        protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-        {
-            if (EqualityComparer<T>.Default.Equals(field, value))
-            {
-                return false;
-            }
-
-            field = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-            return true;
-        }
-    }
-}
-```
-
-#### Step 2: Implement MainViewModel
-- [x] Create `ResizeMe/ViewModels/MainViewModel.cs`
-- [x] Paste the following implementation (adjust namespaces to reuse existing services):
-
-```csharp
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using ResizeMe.Features.MainLayout;
+using ResizeMe.Features.Settings;
 using ResizeMe.Features.WindowManagement;
 using ResizeMe.Models;
 using ResizeMe.Shared.Config;
@@ -119,7 +62,7 @@ namespace ResizeMe.ViewModels
             private set => SetProperty(ref _status, value);
         }
 
-        public MainViewModel(
+        internal MainViewModel(
             DispatcherQueue dispatcherQueue,
             PresetStorage presets,
             WindowDiscoveryService windowDiscovery,
@@ -165,7 +108,7 @@ namespace ResizeMe.ViewModels
                 return;
             }
 
-            Status = $"Resizing {preset.Tag}...";
+            Status = $"Resizing {preset.Name}...";
             var result = _windowResizer.Resize(target, preset.Width, preset.Height);
             if (result.Success)
             {
@@ -174,7 +117,7 @@ namespace ResizeMe.ViewModels
                     WindowPositionService.CenterExternalWindow(target);
                 }
                 _windowResizer.Activate(target);
-                Status = $"Done {preset.Tag}";
+                Status = $"Done {preset.Name}";
                 await Task.Delay(500);
                 _dispatcherQueue.TryEnqueue(() => IsVisible = false);
             }
@@ -205,26 +148,3 @@ namespace ResizeMe.ViewModels
         }
     }
 }
-```
-
-## Verification Checklist
-
-- [x] ViewModel files compile
-- [x] No warnings about missing namespaces or assemblies
-
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| `DispatcherQueue` null | Pass `DispatcherQueue.GetForCurrentThread()` from `MainWindow` when instantiating `MainViewModel`. |
-| Duplicate namespace errors | Ensure files live under `ResizeMe/ViewModels` and namespaces match. |
-| Presets not updating | Confirm `RefreshPresetCollection` uses dispatcher to assign `ObservableCollection`. |
-
-## Files Modified
-
-- [x] ✅ Created: `ResizeMe/ViewModels/ViewModelBase.cs`
-- [x] ✅ Created: `ResizeMe/ViewModels/MainViewModel.cs`
-
-## What Comes Next
-
-- Step 3.2 will bind `MainWindow` to `MainViewModel` and remove duplicated state fields.
