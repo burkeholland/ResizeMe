@@ -8,7 +8,7 @@ using ResizeMe.Shared.Logging;
 
 namespace ResizeMe.Features.SystemIntegration
 {
-    internal sealed class HotKeyService : IDisposable
+    public sealed class HotKeyService : IDisposable
     {
         private const int HotKeyId = 9000;
         private readonly IntPtr _windowHandle;

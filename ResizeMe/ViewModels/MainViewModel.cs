@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using Microsoft.UI.Dispatching;
 using ResizeMe.Features.MainLayout;
 using ResizeMe.Features.Settings;
@@ -25,6 +26,8 @@ namespace ResizeMe.ViewModels
         private WindowInfo? _selectedWindow;
         private string? _status;
         private ObservableCollection<PresetSize> _presetCollection = new();
+
+        public ICommand ResizeCommand { get; }
 
         public ObservableCollection<PresetSize> Presets
         {
@@ -73,6 +76,7 @@ namespace ResizeMe.ViewModels
             _windowDiscovery = windowDiscovery;
             _windowResizer = windowResizer;
             _centerOnResize = UserSettingsStore.CenterOnResize;
+            ResizeCommand = new RelayCommand<PresetSize>(async (preset) => await ResizeSelectedWindowAsync(preset));
         }
 
         public async Task InitializeAsync()

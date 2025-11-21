@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:ResizeMe"
+    xmlns:models="using:ResizeMe.Models"
     xmlns:vm="using:ResizeMe.ViewModels"
     Title="ResizeMe">
 
@@ -74,9 +75,17 @@
                         FontSize="18"
                         Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
 
-                    <StackPanel x:Name="DynamicPresetsPanel"
-                        Orientation="Vertical"
-                        Spacing="6" />
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.Presets, Mode=OneWay}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:PresetSize">
+                                <Button Content="{x:Bind Name}"
+                                        Command="{Binding ElementName=RootGrid, Path=DataContext.ResizeCommand}"
+                                        CommandParameter="{x:Bind}"
+                                        HorizontalAlignment="Stretch"
+                                        Margin="0,0,0,6" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
                     <TextBlock x:Name="PresetHint"
                         Text="Customize presets in Settings"
@@ -101,7 +110,7 @@
             <StackPanel Orientation="Vertical">
                 <ToggleSwitch x:Name="CenterOnResizeToggle"
                               Header="Center after resize"
-                              Toggled="CenterOnResizeToggle_Toggled"
+                              IsOn="{x:Bind ViewModel.CenterOnResize, Mode=TwoWay}"
                               Margin="0,0,0,8" />
                 <TextBlock Text="Ctrl+Win+R to toggle"
                     FontSize="12"
