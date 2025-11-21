@@ -29,7 +29,7 @@ namespace ResizeMe
         private readonly INativeWindowService _nativeWindowService = new NativeWindowService();
         private readonly IWindowSubclassService _subclassService = new WindowSubclassService();
         private StatusBanner? _status;
-        private TrayIconService? _trayIcon;
+        private TrayIconManager? _trayManager;
         private HotKeyService? _hotKey;
         private IntPtr _windowHandle;
         private AppWindow? _appWindow;
@@ -160,18 +160,33 @@ namespace ResizeMe
 
         private void InitializeTray()
         {
-            if (_windowHandle == IntPtr.Zero || _trayIcon != null)
+            if (_windowHandle == IntPtr.Zero || _trayManager != null)
             {
                 return;
             }
 
-            _trayIcon = new TrayIconService(_windowHandle, "ResizeMe");
-            if (_trayIcon.Initialize())
+            _trayManager = new TrayIconManager(_windowHandle);
+            if (_trayManager.Initialize())
             {
-                _trayIcon.ShowRequested += (_, _) => DispatcherQueue.TryEnqueue(ToggleVisibility);
-                _trayIcon.SettingsRequested += (_, _) => DispatcherQueue.TryEnqueue(OpenSettingsWindow);
-                _trayIcon.ExitRequested += (_, _) => DispatcherQueue.TryEnqueue(PerformExit);
+                _trayManager.ShowRequested += OnTrayShowRequested;
+                _trayManager.SettingsRequested += OnTraySettingsRequested;
+                _trayManager.ExitRequested += OnTrayExitRequested;
             }
+        }
+
+        private void OnTrayShowRequested(object? sender, EventArgs e)
+        {
+            DispatcherQueue.TryEnqueue(ToggleVisibility);
+        }
+
+        private void OnTraySettingsRequested(object? sender, EventArgs e)
+        {
+            DispatcherQueue.TryEnqueue(OpenSettingsWindow);
+        }
+
+        private void OnTrayExitRequested(object? sender, EventArgs e)
+        {
+            DispatcherQueue.TryEnqueue(PerformExit);
         }
 
         private void SyncCenterToggle()
@@ -186,7 +201,7 @@ namespace ResizeMe
 
         private void ShowFirstRunFlows()
         {
-            ShowTrayNotificationOnce();
+            _trayManager?.ShowFirstRunBalloon();
             CheckFirstRunSettings();
         }
 
@@ -466,7 +481,14 @@ namespace ResizeMe
 
         private void OnClosed(object sender, WindowEventArgs args)
         {
-            _trayIcon?.Dispose();
+            if (_trayManager != null)
+            {
+                _trayManager.ShowRequested -= OnTrayShowRequested;
+                _trayManager.SettingsRequested -= OnTraySettingsRequested;
+                _trayManager.ExitRequested -= OnTrayExitRequested;
+                _trayManager.Dispose();
+                _trayManager = null;
+            }
             _hotKey?.Dispose();
             _subclassService.Detach();
             _subclassService.Dispose();
@@ -523,7 +545,14 @@ namespace ResizeMe
         {
             try
             {
-                _trayIcon?.Dispose();
+                if (_trayManager != null)
+                {
+                    _trayManager.ShowRequested -= OnTrayShowRequested;
+                    _trayManager.SettingsRequested -= OnTraySettingsRequested;
+                    _trayManager.ExitRequested -= OnTrayExitRequested;
+                    _trayManager.Dispose();
+                    _trayManager = null;
+                }
                 _hotKey?.Dispose();
             }
             finally
@@ -563,12 +592,12 @@ namespace ResizeMe
                     return new IntPtr(1);
                 }
 
-                if (_owner._trayIcon != null && msg == _owner._trayIcon.CallbackMessage)
+                if (_owner._trayManager != null && msg == _owner._trayManager.CallbackMessage)
                 {
                     int param = lParam.ToInt32();
                     if (param == WM_RBUTTONUP)
                     {
-                        _owner._trayIcon.ShowContextMenu();
+                        _owner._trayManager.ShowContextMenu();
                         return new IntPtr(1);
                     }
                     if (param == WM_LBUTTONUP)
