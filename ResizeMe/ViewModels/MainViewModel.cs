@@ -88,8 +88,28 @@ namespace ResizeMe.ViewModels
 
         public void RefreshWindowSnapshot()
         {
-            var windows = _windowDiscovery.GetWindows().ToList();
-            SelectedWindow = _windowDiscovery.GetActiveWindow() ?? windows.FirstOrDefault();
+            // Only refresh if we don't already have a captured target window
+            // This preserves the window captured before ResizeMe was shown
+            if (SelectedWindow == null)
+            {
+                CaptureTargetWindow();
+            }
+        }
+
+        public void CaptureTargetWindow()
+        {
+            // Capture the current foreground window as the resize target
+            var activeWindow = _windowDiscovery.GetActiveWindow();
+            if (activeWindow != null)
+            {
+                SelectedWindow = activeWindow;
+            }
+            else
+            {
+                // Fall back to first available window if no active window found
+                var windows = _windowDiscovery.GetWindows().ToList();
+                SelectedWindow = windows.FirstOrDefault();
+            }
         }
 
         public async Task ReloadPresetsAsync()
@@ -135,12 +155,15 @@ namespace ResizeMe.ViewModels
         public void Show()
         {
             IsVisible = true;
-            RefreshWindowSnapshot();
+            // Don't call RefreshWindowSnapshot here - the target window
+            // should already be captured by CaptureTargetWindow() before Show() is called
         }
 
         public void Hide()
         {
             IsVisible = false;
+            // Clear the selected window when hiding so the next show captures fresh
+            SelectedWindow = null;
         }
 
         private void RefreshPresetCollection()

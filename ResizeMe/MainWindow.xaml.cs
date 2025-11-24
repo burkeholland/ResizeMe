@@ -242,6 +242,9 @@ namespace ResizeMe
             }
             else
             {
+                // Capture the foreground window BEFORE showing ResizeMe window
+                // This ensures we get the window that had focus when the hotkey was pressed
+                _viewModel.CaptureTargetWindow();
                 _viewModel.Show();
             }
         }
@@ -252,7 +255,8 @@ namespace ResizeMe
             {
                 EnsureWindowHandle();
                 await _viewModel.ReloadPresetsAsync();
-                _viewModel.RefreshWindowSnapshot();
+                // Don't call RefreshWindowSnapshot here - the target window is already captured
+                // by CaptureTargetWindow() before the visibility toggle
 
                 var anchor = _viewModel.SelectedWindow;
                 if (anchor != null)
