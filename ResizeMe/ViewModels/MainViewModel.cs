@@ -27,6 +27,9 @@ namespace ResizeMe.ViewModels
         
         // Delay after successful resize before auto-hiding UI (milliseconds)
         private const int PostResizeHideDelayMs = 500;
+        
+        // Status messages
+        private const string StatusNoWindowSelected = "No window selected";
 
         private readonly PresetStorage _presets;
         private readonly WindowDiscoveryService _windowDiscovery;
@@ -187,7 +190,7 @@ namespace ResizeMe.ViewModels
             var target = SelectedWindow;
             if (target == null)
             {
-                Status = "No window selected";
+                Status = StatusNoWindowSelected;
                 AppLog.Warn(LogTag, "ResizeSelectedWindowAsync: no target window");
                 return;
             }
