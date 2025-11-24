@@ -78,11 +78,36 @@
                     <ItemsControl ItemsSource="{x:Bind ViewModel.Presets, Mode=OneWay}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="models:PresetSize">
-                                <Button Content="{x:Bind Name}"
+                                <Button Style="{StaticResource PresetButtonBaseStyle}"
                                         Command="{Binding ElementName=RootGrid, Path=DataContext.ResizeCommand}"
-                                        CommandParameter="{x:Bind}"
-                                        HorizontalAlignment="Stretch"
-                                        Margin="0,0,0,6" />
+                                        CommandParameter="{x:Bind}">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <FontIcon Grid.Column="0"
+                                            FontFamily="Segoe Fluent Icons"
+                                            Glyph="&#xE7C4;"
+                                            FontSize="14"
+                                            Foreground="{ThemeResource AccentTextFillColorSecondaryBrush}"
+                                            VerticalAlignment="Center"
+                                            Margin="0,0,8,0" />
+                                        <StackPanel Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            Spacing="2">
+                                            <TextBlock Text="{x:Bind Name}"
+                                                Style="{StaticResource PresetHeaderTextStyle}"
+                                                Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                FontSize="11">
+                                                <Run Text="{x:Bind Width}" />
+                                                <Run Text=" x " />
+                                                <Run Text="{x:Bind Height}" />
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Grid>
+                                </Button>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
