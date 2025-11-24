@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Microsoft.UI.Dispatching;
-using ResizeMe.Features.MainLayout;
 using ResizeMe.Features.Settings;
 using ResizeMe.Features.WindowManagement;
 using ResizeMe.Models;
@@ -13,13 +12,29 @@ using ResizeMe.Shared.Logging;
 
 namespace ResizeMe.ViewModels
 {
+    /// <summary>
+    /// Main ViewModel orchestrating window resize operations.
+    /// 
+    /// Key invariants:
+    /// - SelectedWindow is captured BEFORE showing the UI (via CaptureTargetWindow)
+    /// - SelectedWindow is cleared when hiding to ensure fresh capture on next show
+    /// - IsVisible triggers UI show/hide via PropertyChanged event in MainWindow
+    /// - Presets are loaded once at initialization and reloaded on-demand
+    /// </summary>
     public sealed class MainViewModel : ViewModelBase
     {
+        private const string LogTag = nameof(MainViewModel);
+        
+        // Delay after successful resize before auto-hiding UI (milliseconds)
+        private const int PostResizeHideDelayMs = 500;
+        
+        // Status messages
+        private const string StatusNoWindowSelected = "No window selected";
+
         private readonly PresetStorage _presets;
         private readonly WindowDiscoveryService _windowDiscovery;
         private readonly WindowResizeService _windowResizer;
         private readonly DispatcherQueue _dispatcherQueue;
-        private readonly string _logger = nameof(MainViewModel);
 
         private bool _isVisible;
         private bool _centerOnResize;
@@ -49,6 +64,7 @@ namespace ResizeMe.ViewModels
                 if (SetProperty(ref _centerOnResize, value))
                 {
                     UserSettingsStore.CenterOnResize = value;
+                    AppLog.Info(LogTag, $"CenterOnResize changed to {value}");
                 }
             }
         }
@@ -71,98 +87,165 @@ namespace ResizeMe.ViewModels
             WindowDiscoveryService windowDiscovery,
             WindowResizeService windowResizer)
         {
-            _dispatcherQueue = dispatcherQueue;
-            _presets = presets;
-            _windowDiscovery = windowDiscovery;
-            _windowResizer = windowResizer;
+            _dispatcherQueue = dispatcherQueue ?? throw new ArgumentNullException(nameof(dispatcherQueue));
+            _presets = presets ?? throw new ArgumentNullException(nameof(presets));
+            _windowDiscovery = windowDiscovery ?? throw new ArgumentNullException(nameof(windowDiscovery));
+            _windowResizer = windowResizer ?? throw new ArgumentNullException(nameof(windowResizer));
+            
             _centerOnResize = UserSettingsStore.CenterOnResize;
             ResizeCommand = new RelayCommand<PresetSize>(async (preset) => await ResizeSelectedWindowAsync(preset));
+            
+            AppLog.Info(LogTag, "ViewModel initialized");
         }
 
         public async Task InitializeAsync()
         {
-            await _presets.LoadAsync();
-            RefreshPresetCollection();
-            RefreshWindowSnapshot();
-        }
-
-        public void RefreshWindowSnapshot()
-        {
-            // Only refresh if we don't already have a captured target window
-            // This preserves the window captured before ResizeMe was shown
-            if (SelectedWindow == null)
+            AppLog.Info(LogTag, "InitializeAsync starting");
+            
+            try
             {
-                CaptureTargetWindow();
+                await _presets.LoadAsync();
+                RefreshPresetCollection();
+                RefreshWindowSnapshot();
+                
+                AppLog.Info(LogTag, $"InitializeAsync completed, loaded {Presets.Count} presets");
+            }
+            catch (Exception ex)
+            {
+                AppLog.Error(LogTag, "InitializeAsync failed", ex);
+                throw;
             }
         }
 
+        /// <summary>
+        /// Refreshes the selected window only if not already set.
+        /// This preserves the window captured before ResizeMe UI was shown.
+        /// </summary>
+        public void RefreshWindowSnapshot()
+        {
+            if (SelectedWindow != null)
+            {
+                AppLog.Info(LogTag, $"RefreshWindowSnapshot skipped, already have: {SelectedWindow.Title}");
+                return;
+            }
+            
+            CaptureTargetWindow();
+        }
+
+        /// <summary>
+        /// Captures the current foreground window as the resize target.
+        /// Called BEFORE the ResizeMe UI is shown to ensure we capture
+        /// the window that was active when the hotkey was pressed.
+        /// </summary>
         public void CaptureTargetWindow()
         {
-            // Capture the current foreground window as the resize target
             var activeWindow = _windowDiscovery.GetActiveWindow();
+            
             if (activeWindow != null)
             {
                 SelectedWindow = activeWindow;
+                AppLog.Info(LogTag, $"Captured active window: {activeWindow.Title}");
+                return;
+            }
+
+            // Fall back to first available window if no active window found
+            var windows = _windowDiscovery.GetWindows().ToList();
+            var firstWindow = windows.FirstOrDefault();
+            
+            if (firstWindow != null)
+            {
+                SelectedWindow = firstWindow;
+                AppLog.Info(LogTag, $"Captured fallback window: {firstWindow.Title}");
             }
             else
             {
-                // Fall back to first available window if no active window found
-                var windows = _windowDiscovery.GetWindows().ToList();
-                SelectedWindow = windows.FirstOrDefault();
+                AppLog.Warn(LogTag, "CaptureTargetWindow found no suitable windows");
             }
         }
 
         public async Task ReloadPresetsAsync()
         {
-            await _presets.LoadAsync(true);
+            AppLog.Info(LogTag, "ReloadPresetsAsync starting");
+            
+            await _presets.LoadAsync(forceReload: true);
             RefreshPresetCollection();
+            
+            AppLog.Info(LogTag, $"ReloadPresetsAsync completed, {Presets.Count} presets loaded");
         }
 
-        public async Task ResizeSelectedWindowAsync(PresetSize preset)
+        /// <summary>
+        /// Resizes the selected window to the given preset dimensions.
+        /// On success: optionally centers the window, activates it, then hides the UI.
+        /// On failure: displays error status and logs warning.
+        /// </summary>
+        public async Task ResizeSelectedWindowAsync(PresetSize? preset)
         {
+            // Validate inputs
             if (preset == null)
             {
+                AppLog.Warn(LogTag, "ResizeSelectedWindowAsync called with null preset");
                 return;
             }
 
             var target = SelectedWindow;
             if (target == null)
             {
-                Status = "No window";
+                Status = StatusNoWindowSelected;
+                AppLog.Warn(LogTag, "ResizeSelectedWindowAsync: no target window");
                 return;
             }
 
+            AppLog.Info(LogTag, $"Resizing '{target.Title}' to {preset.Name} ({preset.Width}x{preset.Height})");
             Status = $"Resizing {preset.Name}...";
+
+            // Perform the resize operation
             var result = _windowResizer.Resize(target, preset.Width, preset.Height);
-            if (result.Success)
+
+            if (!result.Success)
             {
-                if (CenterOnResize)
-                {
-                    WindowPositionService.CenterExternalWindow(target);
-                }
-                _windowResizer.Activate(target);
-                Status = $"Done {preset.Name}";
-                await Task.Delay(500);
-                _dispatcherQueue.TryEnqueue(() => IsVisible = false);
+                var errorMessage = result.ErrorMessage ?? "Resize failed";
+                Status = errorMessage;
+                AppLog.Warn(LogTag, $"Resize failed: {errorMessage}, ErrorCode={result.ErrorCode}");
+                return;
             }
-            else
+
+            // Resize succeeded - apply post-resize actions
+            AppLog.Info(LogTag, $"Resize succeeded for '{target.Title}'");
+
+            if (CenterOnResize)
             {
-                Status = result.ErrorMessage ?? "Resize failed";
-                AppLog.Warn(_logger, Status);
+                WindowPositionService.CenterExternalWindow(target);
+                AppLog.Info(LogTag, "Window centered on monitor");
             }
+
+            _windowResizer.Activate(target);
+            Status = $"Done {preset.Name}";
+
+            // Delay before hiding to let user see the result
+            await Task.Delay(PostResizeHideDelayMs);
+            
+            _dispatcherQueue.TryEnqueue(() => IsVisible = false);
         }
 
+        /// <summary>
+        /// Shows the ViewModel UI state.
+        /// Note: CaptureTargetWindow() must be called BEFORE Show() to ensure
+        /// the correct window is targeted.
+        /// </summary>
         public void Show()
         {
+            AppLog.Info(LogTag, "Show called");
             IsVisible = true;
-            // Don't call RefreshWindowSnapshot here - the target window
-            // should already be captured by CaptureTargetWindow() before Show() is called
         }
 
+        /// <summary>
+        /// Hides the ViewModel UI state and clears the selected window.
+        /// The window is cleared so that the next Show() captures a fresh target.
+        /// </summary>
         public void Hide()
         {
+            AppLog.Info(LogTag, "Hide called");
             IsVisible = false;
-            // Clear the selected window when hiding so the next show captures fresh
             SelectedWindow = null;
         }
 
